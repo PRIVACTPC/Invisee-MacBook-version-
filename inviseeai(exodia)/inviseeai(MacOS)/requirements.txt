@@ -1,0 +1,11 @@
+flask
+pandas
+scikit-learn
+waitress
+openpyxl
+numpy
+anonypy
+waitress
+waitress
+requests
+netCDF4
