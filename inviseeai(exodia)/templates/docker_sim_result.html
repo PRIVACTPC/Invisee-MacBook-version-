@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Federated Simulation Results | InviseeAI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bs-primary: #009688;
+            --particle-color: rgba(0, 150, 136, 0.6);
+        }
+
+        body {
+            background: linear-gradient(to right, #ffffff, #e3f2fd, #d1f2eb);
+            font-family: 'Segoe UI', sans-serif;
+            padding: 2rem;
+        }
+
+        #interactive-canvas {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            z-index: -1;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 15px;
+            padding: 2rem;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+            max-width: 1000px;
+        }
+
+        .chart-section {
+            margin-bottom: 3rem;
+        }
+
+        h2, h4 {
+            color: #00796b;
+        }
+    </style>
+</head>
+<body>
+<canvas id="interactive-canvas"></canvas>
+
+<div class="container mx-auto">
+    <h2 class="text-center mb-4">Federated Learning Results</h2>
+
+    <div class="chart-section">
+        <h4>Correlation Heatmap</h4>
+        <div id="heatmap"></div>
+    </div>
+
+    <div class="chart-section">
+        <h4>Feature Distributions (Boxplots)</h4>
+        <div id="boxplots"></div>
+    </div>
+
+    <div class="chart-section">
+        <h4>Target by Group Boxplot</h4>
+        <div id="groupBoxplot"></div>
+    </div>
+
+    <div class="chart-section">
+        <h4>Global R² Scores</h4>
+        <canvas id="r2Chart"></canvas>
+    </div>
+</div>
+
+<script>
+    const df_data = {{ df_json|tojson }};
+    const correlation_data = {{ correlation_json|tojson }};
+    const r2_data = {{ r2_data|tojson }};
+    const group_col = "{{ group_col }}";
+    const target_col = "{{ target_col }}";
+
+    // Heatmap
+    const heatmap_labels = Object.keys(correlation_data);
+    const heatmap_values = heatmap_labels.map(row => heatmap_labels.map(col => correlation_data[row][col]));
+    Plotly.newPlot('heatmap', [{
+        z: heatmap_values,
+        x: heatmap_labels,
+        y: heatmap_labels,
+        type: 'heatmap',
+        colorscale: 'RdBu',
+        zmin: -1,
+        zmax: 1
+    }]);
+
+    // Boxplots
+    const boxCols = Object.keys(df_data[0]);
+    const boxTraces = boxCols.map(col => {
+        const y = df_data.map(r => r[col]).filter(v => typeof v === "number");
+        return { y, type: "box", name: col };
+    });
+    Plotly.newPlot('boxplots', boxTraces);
+
+    // Grouped Boxplot
+    const groups = [...new Set(df_data.map(r => r[group_col]))];
+    const traces = groups.map(g => ({
+        y: df_data.filter(r => r[group_col] === g).map(r => r[target_col]),
+        name: String(g),
+        type: 'box'
+    }));
+    Plotly.newPlot('groupBoxplot', traces, {
+        boxmode: 'group'
+    });
+
+    // R² Chart
+    const r2Chart = document.getElementById('r2Chart').getContext('2d');
+    new Chart(r2Chart, {
+        type: 'bar',
+        data: {
+            labels: r2_data.map(item => item.target),
+            datasets: [{
+                label: 'R² Score',
+                data: r2_data.map(item => item.r2),
+                backgroundColor: '#26a69a',
+                borderColor: '#00796b',
+                borderWidth: 1
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            scales: { x: { beginAtZero: true, max: 1 } },
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: 'Global Model R² Scores' }
+            }
+        }
+    });
+</script>
+
+<!-- Particle Canvas Background -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('interactive-canvas'); if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        let particlesArray;
+        const config = { particleCount: 80, particleColor: getComputedStyle(document.documentElement).getPropertyValue('--particle-color').trim(), particleRadius: 2, maxDistance: 130 };
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        resizeCanvas();
+        const mouse = { x: null, y: null };
+        window.addEventListener('mousemove', e => { mouse.x = e.x; mouse.y = e.y; });
+        window.addEventListener('mouseout', () => { mouse.x = null; mouse.y = null; });
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 1.5 + config.particleRadius;
+                this.directionX = (Math.random() * 0.4) - 0.2;
+                this.directionY = (Math.random() * 0.4) - 0.2;
+                this.color = config.particleColor;
+            }
+            draw() {
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fillStyle = this.color; ctx.fill();
+            }
+            update() {
+                if (this.x > canvas.width || this.x < 0) this.directionX = -this.directionX;
+                if (this.y > canvas.height || this.y < 0) this.directionY = -this.directionY;
+                this.x += this.directionX; this.y += this.directionY;
+                this.draw();
+            }
+        }
+        function init() {
+            particlesArray = [];
+            for (let i = 0; i < config.particleCount; i++) { particlesArray.push(new Particle()); }
+        }
+        function animate() {
+            requestAnimationFrame(animate);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            for (let p of particlesArray) p.update();
+            connect();
+        }
+        function connect() {
+            for (let a = 0; a < particlesArray.length; a++) {
+                for (let b = a; b < particlesArray.length; b++) {
+                    const dx = particlesArray[a].x - particlesArray[b].x;
+                    const dy = particlesArray[a].y - particlesArray[b].y;
+                    const distance = Math.hypot(dx, dy);
+                    if (distance < config.maxDistance) {
+                        const opacity = 1 - distance / config.maxDistance;
+                        ctx.strokeStyle = `rgba(0, 150, 136, ${opacity * 0.7})`;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(particlesArray[a].x, particlesArray[a].y);
+                        ctx.lineTo(particlesArray[b].x, particlesArray[b].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+        window.addEventListener('resize', () => { resizeCanvas(); init(); });
+        init(); animate();
+    });
+</script>
+
+<div class="chart-section">
+    <h4>Top 10 Relationships (Correlation / R²)</h4>
+    <ul class="list-group">
+        {% for item in top_relationships %}
+            <li class="list-group-item">{{ item }}</li>
+        {% endfor %}
+    </ul>
+</div>
+
+
+<div class="text-center mt-5">
+    <a href="{{ url_for('index') }}" class="btn btn-lg custom-btn custom-btn-mint shadow-lg px-5 py-3">
+        <i class="fas fa-redo-alt fa-lg me-2"></i>Start Over
+    </a>
+</div>
+
+
+</body>
+</html>

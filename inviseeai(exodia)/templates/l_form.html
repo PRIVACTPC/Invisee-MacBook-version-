@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>ℓ-Contextual Masking | InviseeAI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!-- Bootstrap & Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+
+    <!-- YOUR Custom CSS -->
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet" />
+
+    <style>
+        :root {
+            --particle-color: rgba(0, 150, 136, 0.5);
+            --bs-primary: #009688;
+            --bs-info: #3b82f6;
+        }
+
+        body {
+            background: linear-gradient(-45deg, #e0f2f1, #e3f2fd, #e8f5e9, #e0f2f1);
+            background-size: 400% 400%;
+            animation: gradient-animation 20s ease infinite;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradient-animation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        #interactive-canvas {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; z-index: -1;
+        }
+
+        .hero, .container.my-5 { position: relative; z-index: 1; }
+
+        .form-container {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 1.25rem;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+
+        .form-control:focus, .form-select:focus {
+            border-color: var(--bs-primary);
+            box-shadow: 0 0 0 0.25rem rgba(0, 150, 136, 0.25);
+        }
+
+        .info-popover-trigger {
+            color: var(--bs-info);
+            cursor: pointer;
+        }
+
+        .controls-header { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 1rem; }
+        .search-box { position: relative; flex: 1 1 300px; }
+        .search-box .form-control { padding-left: 2.5rem; }
+        .search-box .bi-search { position: absolute; top: 50%; left: 0.85rem; transform: translateY(-50%); color: #6c757d; }
+        .checkbox-container { background-color: #f8f9fa; border-radius: 8px; padding: 1.5rem; max-height: 350px; overflow-y: auto; }
+        .checkbox-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem 1.5rem; }
+        .form-check { padding: 0.25rem; border-radius: 5px; transition: background-color 0.2s ease; }
+        .form-check:hover { background-color: #e0f2f1; }
+
+        /* Styles for buttons to match other pages */
+        .custom-btn { border-radius: 50rem; font-weight: 500; padding: 0.6rem 1.2rem; border-width: 2px; transition: all 0.2s ease-in-out; }
+        .custom-btn-mint { background-color: var(--bs-primary); border-color: var(--bs-primary); color: white; }
+        .custom-btn-mint:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0, 150, 136, 0.3); }
+        .custom-btn-outline { border-color: #6c757d; color: #495057; }
+        .custom-btn-outline:hover { background-color: #6c757d; color: white; }
+    </style>
+</head>
+
+<body>
+<canvas id="interactive-canvas"></canvas>
+<section class="hero py-5">
+    <div class="container text-center">
+        <img src="{{ url_for('static', filename='Images/inv1.png') }}" alt="InviseeAI Logo" class="img-fluid mb-3" style="max-width: 120px;">
+        <h1 class="display-5 fw-bold">ℓ-Contextual Masking</h1>
+        <p class="lead">Apply contextual masking to protect sensitive attributes by ensuring group diversity.</p>
+    </div>
+</section>
+
+<div class="container my-5">
+    <div class="form-container mx-auto" style="max-width: 900px; padding: 2.5rem;">
+        <form method="POST" action="/l_mask">
+            <div class="mb-4 pb-3">
+                <div class="d-flex align-items-center mb-2">
+                    <label for="l_value" class="form-label fs-5 fw-semibold mb-0 me-2">Set Diversity Parameter (ℓ)</label>
+                    <i class="bi bi-info-circle-fill info-popover-trigger"
+                       data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right"
+                       title="What is ℓ-diversity?"
+                       data-bs-content="This is a stricter privacy model than k-anonymity. It ensures that any group of similar records contains at least 'ℓ' different types of sensitive values, preventing attackers from learning secrets even if they identify the group."></i>
+                </div>
+                <input type="number" name="l_value" id="l_value" min="2" class="form-control form-control-lg" required value="2">
+
+                <div class="form-text mt-2 ps-1">
+                    This setting is a trade-off: <br/>
+                    <i class="bi bi-arrow-up-circle-fill text-success me-1"></i> <strong>Higher ℓ:</strong> Stronger Privacy (more diverse groups) <br/>
+                    <i class="bi bi-arrow-down-circle-fill text-warning me-1"></i> <strong>Lower ℓ:</strong> Higher Data Utility (easier to create groups)
+                </div>
+            </div>
+
+            <hr class="my-4">
+            <div>
+                <h5 class="fw-semibold mb-3">Select Sensitive Columns to Mask</h5>
+                <div class="controls-header">
+                    <div class="search-box">
+                        <i class="bi bi-search"></i><input type="text" id="column-search" class="form-control" placeholder="Search for columns...">
+                    </div>
+                    <div class="d-flex align-items-center gap-3">
+                        <span id="selection-counter" class="text-muted fw-medium"></span>
+                        <div class="btn-group" role="group">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="select-all-btn">Select All</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="deselect-all-btn">Deselect All</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="checkbox-container">
+                    <div class="checkbox-grid">
+                        {% for col in columns %}<div class="form-check"><input class="form-check-input" type="checkbox" name="columns" value="{{ col }}" id="{{ col }}"><label class="form-check-label" for="{{ col }}">{{ col }}</label></div>{% endfor %}
+                    </div>
+                </div>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mt-4 pt-4 border-top">
+                <a href="{{ url_for('preview') }}" class="btn custom-btn custom-btn-outline"><i class="bi bi-arrow-left me-2"></i>Back to Preview</a>
+                <button type="submit" id="submit-btn" class="btn custom-btn custom-btn-mint fs-6"><i class="bi bi-shield-check me-2"></i>Apply ℓ-Masking</button>
+            </div>
+        </form>
+    </div>
+</div>
+<footer class="text-center py-4 text-muted">© 2025 InviseeAI. All rights reserved.</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- ADDED: Initialize popovers ---
+        const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]');
+        const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl));
+
+        const checkboxes = document.querySelectorAll('input[name="columns"]');
+        const formCheckDivs = document.querySelectorAll('.form-check');
+        const selectAllBtn = document.getElementById('select-all-btn');
+        const deselectAllBtn = document.getElementById('deselect-all-btn');
+        const counterElement = document.getElementById('selection-counter');
+        const submitBtn = document.getElementById('submit-btn');
+        const searchInput = document.getElementById('column-search');
+        const totalColumns = checkboxes.length;
+
+        function updateSelectionState() {
+            const selectedCount = document.querySelectorAll('input[name="columns"]:checked').length;
+            counterElement.textContent = `${selectedCount} / ${totalColumns} selected`;
+            submitBtn.disabled = selectedCount === 0;
+            selectAllBtn.disabled = selectedCount === totalColumns;
+            deselectAllBtn.disabled = selectedCount === 0;
+        }
+
+        checkboxes.forEach(cb => cb.addEventListener('change', updateSelectionState));
+        selectAllBtn.addEventListener('click', () => { checkboxes.forEach(cb => cb.checked = true); updateSelectionState(); });
+        deselectAllBtn.addEventListener('click', () => { checkboxes.forEach(cb => cb.checked = false); updateSelectionState(); });
+        searchInput.addEventListener('input', (e) => {
+            const searchTerm = e.target.value.toLowerCase();
+            formCheckDivs.forEach(div => {
+                const label = div.querySelector('label').textContent.toLowerCase();
+                div.style.display = label.includes(searchTerm) ? 'flex' : 'none';
+            });
+        });
+
+        updateSelectionState();
+    });
+</script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('interactive-canvas'); if (!canvas) return; const ctx = canvas.getContext('2d');
+        let particlesArray;
+        const config = { particleCount: 80, particleColor: getComputedStyle(document.documentElement).getPropertyValue('--particle-color').trim(), particleRadius: 2, maxDistance: 130 };
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        resizeCanvas();
+        const mouse = { x: null, y: null };
+        window.addEventListener('mousemove', (event) => { mouse.x = event.x; mouse.y = event.y; });
+        window.addEventListener('mouseout', () => { mouse.x = null; mouse.y = null; });
+        class Particle {
+            constructor() { this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height; this.size = Math.random() * 1.5 + config.particleRadius; this.directionX = (Math.random() * 0.4) - 0.2; this.directionY = (Math.random() * 0.4) - 0.2; }
+            draw() { ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fillStyle = config.particleColor; ctx.fill(); }
+            update() { if (this.x > canvas.width || this.x < 0) this.directionX = -this.directionX; if (this.y > canvas.height || this.y < 0) this.directionY = -this.directionY; this.x += this.directionX; this.y += this.directionY; this.draw(); }
+        }
+        function init() { particlesArray = []; for (let i = 0; i < config.particleCount; i++) { particlesArray.push(new Particle()); } }
+        function connect() { for (let a = 0; a < particlesArray.length; a++) { for (let b = a; b < particlesArray.length; b++) { const distance = Math.hypot(particlesArray[a].x - particlesArray[b].x, particlesArray[a].y - particlesArray[b].y); if (distance < config.maxDistance) { const opacityValue = 1 - (distance / config.maxDistance); ctx.strokeStyle = `rgba(0, 150, 136, ${opacityValue * 0.7})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(particlesArray[a].x, particlesArray[a].y); ctx.lineTo(particlesArray[b].x, particlesArray[b].y); ctx.stroke(); } } } }
+        function animate() { requestAnimationFrame(animate); ctx.clearRect(0, 0, canvas.width, canvas.height); for (let particle of particlesArray) { particle.update(); } connect(); }
+        window.addEventListener('resize', () => { resizeCanvas(); init(); });
+        init(); animate();
+    });
+</script>
+
+</body>
+</html>

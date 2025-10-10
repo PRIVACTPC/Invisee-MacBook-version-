@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Dataset Summary | InviseeAI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Bootstrap & Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+
+    <style>
+        :root {
+            --primary-theme-color: #009688;
+            --muted-text-color: #5a6e87;
+            --theme-border-color: #dee2e6;
+            --primary-theme-light-bg: #e0f2f1;
+            --primary-theme-transparent-bg: rgba(0, 150, 136, 0.1);
+        }
+
+        body {
+            background: linear-gradient(-45deg, #e0f2f1, #e3f2fd, #e8f5e9, #e0f2f1);
+            background-size: 400% 400%;
+            animation: gradient-animation 20s ease infinite;
+            font-family: 'Segoe UI', sans-serif;
+            color: #2a3f5a;
+        }
+
+        @keyframes gradient-animation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* --- NEW: Canvas for Ambient Grid Animation --- */
+        #interactive-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1; /* Place behind all content */
+        }
+        .container {
+            position: relative;
+            z-index: 1; /* Ensure container content is on top */
+        }
+
+        .page-header h1 { color: var(--primary-theme-color); }
+        .text-muted { color: var(--muted-text-color) !important; }
+
+        .card-glass {
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 1rem;
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+
+        .stat-card { text-align: center; }
+        .stat-icon-wrapper {
+            width: 60px; height: 60px; margin: 0 auto 1rem auto;
+            border-radius: 50%; background-color: var(--primary-theme-light-bg);
+            color: var(--primary-theme-color); display: flex; align-items: center;
+            justify-content: center; font-size: 2rem;
+        }
+        .stat-card .stat-value { font-size: 2.25rem; font-weight: 600; color: #2a3f5a; }
+        .stat-card .stat-label { font-size: 1rem; color: var(--muted-text-color); }
+
+        .accordion-item { border-radius: 0.75rem; overflow: hidden; border-color: var(--theme-border-color); }
+        .accordion-button { font-weight: 500; transition: background-color 0.2s ease; }
+        .accordion-button:not(.collapsed) {
+            background-color: var(--primary-theme-transparent-bg);
+            color: var(--primary-theme-color); box-shadow: none;
+        }
+        .accordion-button:focus { box-shadow: 0 0 0 0.25rem rgba(0, 150, 136, 0.25); }
+        .accordion-button strong { font-size: 1.1rem; }
+        .accordion-button .badge { background-color: var(--primary-theme-color) !important; }
+
+        .form-control:focus {
+            border-color: var(--primary-theme-color);
+            box-shadow: 0 0 0 0.25rem rgba(0, 150, 136, 0.25);
+        }
+
+        .nav-button {
+            padding: 0.75rem 1.5rem; border-radius: 2rem; font-weight: 500;
+            text-decoration: none; display: inline-block; transition: all 0.2s ease-in-out;
+        }
+        .nav-button:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .nav-button.btn-outline-secondary {
+            border-color: #6c757d; color: #495057; background-color: white;
+        }
+
+        /* Styles for Interactive Value Distribution List */
+        .value-distribution-list { font-size: 0.9rem; max-height: 250px; overflow-y: auto; padding-right: 10px; }
+        .dist-item { position: relative; background-color: #f8f9fa; border-radius: 4px; margin-bottom: 6px; overflow: hidden; }
+        .dist-item-content { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; color: var(--muted-text-color); }
+        .dist-item-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding-right: 1rem; font-weight: 500; }
+        .dist-item-bar { position: absolute; left: 0; top: 0; height: 100%; background-color: var(--primary-theme-transparent-bg); z-index: 1; transition: width 0.3s ease-in-out; border-radius: 4px; }
+        .toggle-dist-btn { font-size: 0.8rem; font-weight: 500; color: var(--primary-theme-color); background: none; border: none; padding: 0; cursor: pointer; }
+        .dist-item.is-hidden { display: none; }
+
+    </style>
+</head>
+
+<body>
+<!-- NEW: Canvas for the Ambient Grid animation -->
+<canvas id="interactive-canvas"></canvas>
+
+<div class="container py-5">
+    <header class="page-header text-center mb-5">
+        <a href="/"><img src="{{ url_for('static', filename='Images/inv1.png') }}" alt="InviseeAI" class="img-fluid mb-3" style="max-width: 150px;"></a>
+        <h1 class="display-5 fw-bold">Dataset Summary</h1>
+        <p class="lead text-muted">Explore key statistics and distributions for your dataset.</p>
+    </header>
+
+    <main>
+        <!-- Content remains identical to your version -->
+        <div class="card-glass p-4 mb-5">
+            <div class="row g-4"><div class="col-md-6"><div class="stat-card h-100"><div class="stat-icon-wrapper"><i class="fas fa-list-ol"></i></div><p class="stat-value">{{ summary['_dataset']['num_rows'] | default('N/A') }}</p><h5 class="stat-label">Number of Rows</h5></div></div><div class="col-md-6"><div class="stat-card h-100"><div class="stat-icon-wrapper"><i class="fas fa-columns"></i></div><p class="stat-value">{{ summary['_dataset']['num_columns'] | default('N/A') }}</p><h5 class="stat-label">Number of Columns</h5></div></div></div>
+        </div>
+
+        <div class="card-glass p-4">
+            <div class="text-center mb-4"><h3 class="fw-bold" style="color: var(--primary-theme-color);">Column-by-Column Analysis</h3></div>
+            <div class="mb-4 mx-auto" style="max-width: 500px;"><input type="text" class="form-control" placeholder="Search column by name..." id="columnSearch"></div>
+            <div class="accordion" id="columnStatsAccordion">
+                {% for col, stats in summary.items() if col != "_dataset" %}<div class="accordion-item shadow-sm mb-2"><h2 class="accordion-header" id="heading-{{ loop.index }}"><button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapse-{{ loop.index }}"><strong class="me-auto">{{ col }}</strong><span class="badge rounded-pill me-3">{{ stats['dtype'] | default('N/A') }}</span></button></h2><div id="collapse-{{ loop.index }}" class="accordion-collapse collapse" data-bs-parent="#columnStatsAccordion"><div class="accordion-body"><div class="row g-4"><div class="col-lg-4"><ul class="list-group list-group-flush mb-3"><li class="list-group-item d-flex justify-content-between align-items-center">Missing Values<span class="badge bg-danger rounded-pill">{{ stats['missing_values'] | default(0) }}</span></li><li class="list-group-item d-flex justify-content-between align-items-center">Unique Values<span class="badge bg-info rounded-pill">{{ stats['unique_values'] | default(0) }}</span></li>{% if 'mean' in stats %}<li class="list-group-item d-flex justify-content-between align-items-center">Mean<span>{{ stats['mean'] | round(2) }}</span></li>{% endif %}{% if 'std' in stats %}<li class="list-group-item d-flex justify-content-between align-items-center">Std Dev<span>{{ stats['std'] | round(2) }}</span></li>{% endif %}</ul></div><div class="col-lg-8">{% if stats.get('value_counts') and stats['value_counts'] | length > 1 %}<div class="d-flex justify-content-between align-items-center mb-2"><h6 class="text-muted m-0">Top Value Distribution</h6>{% if stats['value_counts'] | length > 5 %}<button class="toggle-dist-btn" data-target-list="dist-list-{{ loop.index }}">Show All {{ stats['value_counts'] | length }}</button>{% endif %}</div><div class="value-distribution-list" id="dist-list-{{ loop.index }}">{% set max_count = (stats['value_counts'].values() | list | max) %}{% for value, count in stats['value_counts'].items() %}<div class="dist-item {% if loop.index > 5 %}is-hidden{% endif %}"><div class="dist-item-bar" style="width: {{ (count / max_count * 100) | round }}%;"></div><div class="dist-item-content"><span class="dist-item-label" title="{{ value }}">{{ value }}</span><span class="fw-bold">{{ count }}</span></div></div>{% endfor %}</div>{% else %}<div class="text-center p-4 bg-light rounded d-flex align-items-center justify-content-center h-100"><p class="text-muted m-0">No distribution to display.</p></div>{% endif %}</div></div></div></div></div>{% else %}<div class="alert alert-warning text-center">No column data found.</div>{% endfor %}
+            </div>
+        </div>
+
+        <div class="mt-5 d-flex gap-3 justify-content-center flex-wrap">
+            <a href="{{ url_for('preview') }}" class="nav-button btn-outline-secondary"><i class="fas fa-arrow-left me-2"></i>Back to Workspace</a>
+        </div>
+    </main>
+</div>
+
+<!-- Bootstrap JS -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Page Interactivity JS -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () { document.querySelectorAll('.toggle-dist-btn').forEach(btn => { btn.addEventListener('click', function() { const listId = this.dataset.targetList; const listContainer = document.getElementById(listId); if (!listContainer) return; const isShowingAll = this.textContent.toLowerCase().includes('show less'); if (isShowingAll) { listContainer.querySelectorAll('.dist-item').forEach((item, index) => { if (index >= 5) item.classList.add('is-hidden'); }); const totalCount = listContainer.querySelectorAll('.dist-item').length; this.textContent = `Show All ${totalCount}`; } else { listContainer.querySelectorAll('.dist-item.is-hidden').forEach(item => { item.classList.remove('is-hidden'); }); this.textContent = 'Show Less'; } }); }); const columnSearch = document.getElementById('columnSearch'); if (columnSearch) { columnSearch.addEventListener('input', function () { const query = this.value.toLowerCase().trim(); document.querySelectorAll('#columnStatsAccordion .accordion-item').forEach(item => { const title = item.querySelector('strong').innerText.toLowerCase(); item.style.display = title.includes(query) ? '' : 'none'; }); }); } });
+</script>
+
+<!-- NEW: JavaScript for Ambient Grid Animation -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('interactive-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+
+        let grid = [];
+        let animationFrameId;
+
+        const config = {
+            gridSize: 35, // Size of each square cell
+            pulseInterval: 100, // ms between pulses
+            baseAlpha: 0.02,
+            maxAlpha: 0.15,
+            pulseSpeed: 0.04, // Speed of fade in/out
+            color: '0, 150, 136' // RGB for the theme color
+        };
+
+        class GridCell {
+            constructor(x, y, size) {
+                this.x = x;
+                this.y = y;
+                this.size = size;
+                this.alpha = config.baseAlpha;
+                this.targetAlpha = config.baseAlpha;
+            }
+
+            update() {
+                // Smoothly move current alpha towards target alpha
+                if (this.alpha !== this.targetAlpha) {
+                    this.alpha += (this.targetAlpha - this.alpha) * config.pulseSpeed;
+                }
+                // Once the target is reached (or very close), reset it to the base
+                if (this.targetAlpha > config.baseAlpha && Math.abs(this.alpha - this.targetAlpha) < 0.01) {
+                    this.targetAlpha = config.baseAlpha;
+                }
+            }
+
+            pulse() {
+                this.targetAlpha = config.maxAlpha;
+            }
+
+            draw() {
+                ctx.fillStyle = `rgba(${config.color}, ${this.alpha})`;
+                ctx.fillRect(this.x, this.y, this.size, this.size);
+            }
+        }
+
+        function init() {
+            if (animationFrameId) cancelAnimationFrame(animationFrameId);
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            grid = [];
+
+            for (let y = 0; y < canvas.height; y += config.gridSize) {
+                for (let x = 0; x < canvas.width; x += config.gridSize) {
+                    grid.push(new GridCell(x, y, config.gridSize));
+                }
+            }
+            animate();
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            grid.forEach(cell => {
+                cell.update();
+                cell.draw();
+            });
+            animationFrameId = requestAnimationFrame(animate);
+        }
+
+        // Start pulsing random cells
+        setInterval(() => {
+            if (grid.length > 0) {
+                const randomIndex = Math.floor(Math.random() * grid.length);
+                grid[randomIndex].pulse();
+            }
+        }, config.pulseInterval);
+
+        window.addEventListener('resize', init);
+        init();
+    });
+</script>
+
+</body>
+</html>
