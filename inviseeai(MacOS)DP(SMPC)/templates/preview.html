@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Data Workspace | InviseeAI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Bootstrap, DataTables, and Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.datatables.net/1.13.6/css/dataTables.bootstrap5.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}" />
+
+    <style>
+        :root {
+            --primary-theme-color: #009688;
+            --muted-text-color: #5a6e87;
+            --theme-border-color: #dee2e6;
+            --primary-theme-light-bg: #0096881a;
+            --particle-color: rgba(0, 150, 136, 0.6);
+        }
+
+        body {
+            background: linear-gradient(-45deg, #e0f2f1, #e3f2fd, #e8f5e9, #e0f2f1);
+            background-size: 400% 400%;
+            animation: gradient-animation 20s ease infinite;
+            font-family: 'Segoe UI', sans-serif;
+            color: #2a3f5a;
+        }
+
+        @keyframes gradient-animation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        /* --- NEW: Canvas for COMBINED Animations --- */
+        #interactive-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1; /* Place it behind everything */
+        }
+        /* Ensure main content is above the canvas */
+        .container {
+            position: relative;
+            z-index: 1;
+        }
+
+        .text-muted { color: var(--muted-text-color) !important; }
+        .page-header h1 { color: var(--primary-theme-color); }
+
+        .card-glass {
+            background-color: rgba(255, 255, 255, 0.95); /* Slightly less transparent */
+            backdrop-filter: blur(8px);
+            border-radius: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+
+        /* --- Action Tabs --- */
+        #actionTabs .nav-link {
+            color: rgba(255, 255, 255, 0.85); background: transparent; border: none; font-weight: 500;
+            padding: 1rem 1.5rem; transition: all 0.2s ease;
+        }
+        #actionTabs .nav-link.active {
+            background-color: #ffffff; color: var(--primary-theme-color); font-weight: 600;
+        }
+        .nav-tabs {
+            background-color: var(--primary-theme-color); border-bottom: none; border-top-left-radius: 1rem; border-top-right-radius: 1rem;
+        }
+        .tab-content {
+            background-color: white; border-bottom-left-radius: 1rem; border-bottom-right-radius: 1rem;
+        }
+
+        /* --- Action Cards --- */
+        .action-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 1.25rem;
+        }
+        .action-card {
+            display: block; padding: 1.5rem; border: 1px solid var(--theme-border-color);
+            border-radius: 0.75rem; text-decoration: none; color: #2a3f5a;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            position: relative; z-index: 2;
+        }
+        .action-card:hover {
+            transform: translateY(-4px); box-shadow: 0 10px 20px rgba(0,0,0,0.08); border-color: var(--primary-theme-color);
+        }
+        .action-card .icon { font-size: 1.75rem; color: var(--primary-theme-color); margin-bottom: 0.75rem; }
+        .action-card h6 { font-weight: 600; margin-bottom: 0.25rem; }
+        .action-card p { font-size: 0.85rem; color: var(--muted-text-color); margin-bottom: 0; }
+        .action-card.primary-action { background-color: var(--primary-theme-color); border-color: var(--primary-theme-color); color: white; }
+        .action-card.primary-action .icon, .action-card.primary-action p { color: white; opacity: 0.9; }
+
+        /* --- Styled DataTables --- */
+        .data-table-card { position: relative; z-index: 1; }
+        .data-table-card .card-header h5 { color: var(--primary-theme-color); }
+        .dataTables_wrapper .row:first-child { margin-bottom: 1rem; }
+        div.dataTables_wrapper div.dataTables_filter input, div.dataTables_wrapper div.dataTables_length select {
+            border-radius: 0.375rem !important; border-color: var(--theme-border-color) !important;
+        }
+        div.dataTables_wrapper div.dataTables_filter input:focus, div.dataTables_wrapper div.dataTables_length select:focus {
+            border-color: var(--primary-theme-color) !important; box-shadow: 0 0 0 0.25rem rgba(0, 150, 136, 0.25) !important;
+        }
+        .page-item.active .page-link { background-color: var(--primary-theme-color); border-color: var(--primary-theme-color); }
+        .page-link { color: var(--primary-theme-color); }
+        .table thead { background-color: var(--primary-theme-light-bg); }
+    </style>
+</head>
+
+<body>
+<!-- NEW: SINGLE Canvas for BOTH animations -->
+<canvas id="interactive-canvas"></canvas>
+
+<div class="container p-4 p-md-5">
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="mb-4">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show card-glass" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+
+    <header class="page-header text-center mb-5">
+        <a href="/"><img src="{{ url_for('static', filename='Images/inv1.png') }}" alt="InviseeAI Logo" class="img-fluid mb-3" style="max-width: 150px;"></a>
+        <h1 class="display-6 fw-bold">Data Workspace</h1>
+        <p class="lead text-muted">Apply privacy techniques, analyze, and export your dataset.</p>
+        <a href="/" class="btn btn-sm btn-outline-secondary rounded-pill bg-white shadow-sm">
+            <i class="fas fa-sync-alt me-1"></i> Start Over
+        </a>
+    </header>
+
+    <main>
+        <!-- Tabs Panel -->
+        <div class="card-glass mb-4">
+            <div class="card-header bg-transparent">
+                <ul class="nav nav-tabs nav-fill" id="actionTabs" role="tablist">
+                    <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#anonymize-panel"><i class="fas fa-user-secret me-2"></i>Anonymization</button></li>
+                    <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#analyze-panel"><i class="fas fa-chart-line me-2"></i>Analysis & Export</button></li>
+                </ul>
+            </div>
+            <div class="tab-content">
+                <!-- Anonymization Panel -->
+                <div class="tab-pane fade show active p-4" id="anonymize-panel"><div class="action-grid">
+                    <a href="/k_form" class="action-card"><div class="icon"><i class="fas fa-layer-group"></i></div><h6>k-Anonymity</h6><p>Generalize records.</p></a>
+                    <a href="/l_form" class="action-card"><div class="icon"><i class="fas fa-dice"></i></div><h6>ℓ-Diversity</h6><p>Ensure attribute diversity.</p></a>
+                    <a href="/t_form" class="action-card"><div class="icon"><i class="fas fa-compress-arrows-alt"></i></div><h6>t-Closeness</h6><p>Match distribution.</p></a>
+                </div></div>
+                <!-- Analysis Panel -->
+                <div class="tab-pane fade p-4" id="analyze-panel"><div class="action-grid">
+                    <a href="/summary" class="action-card"><div class="icon"><i class="fas fa-clipboard-list"></i></div><h6>View Summary</h6><p>Get descriptive statistics.</p></a>
+                    <a href="{{ url_for('visualize') }}" class="action-card"><div class="icon"><i class="fas fa-chart-bar"></i></div><h6>Create Visualization</h6> <p>Build interactive charts.</p></a>
+                    <a href="{{ url_for('smpc_demo_form') }}" class="action-card"><div class="icon"><i class="fas fa-user-lock"></i></div><h6>SMPC Secure Sum</h6><p>Simulate masked aggregation on numeric columns.</p></a>
+                    <a href="{{ url_for('docker_sim_form') }}" class="action-card"><div class="icon"><i class="fab fa-docker"></i></div><h6>Federated Simulation</h6><p>Configure and run Docker-based federated learning.</p></a>
+                    <a href="#" class="action-card primary-action" data-bs-toggle="modal" data-bs-target="#downloadModal"><div class="icon"><i class="fas fa-download"></i></div><h6>Download CSV</h6><p>Export the dataset to a file.</p></a>
+
+                </div></div>
+            </div>
+        </div>
+
+        <!-- Table Preview -->
+        <div class="card-glass data-table-card">
+            <div class="card-header bg-transparent"><h5 class="mb-0 fw-bold"><i class="fas fa-table me-2"></i>Current Dataset Preview</h5></div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    {% if table %}{{ table | safe }}{% else %}<div class="alert alert-warning mb-0">No data to preview.</div>{% endif %}
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+
+<!-- JS Dependencies -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+<script src="https://cdn.datatables.net/1.13.6/js/dataTables.bootstrap5.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+    $(document).ready(function () {
+        $("table").DataTable({
+            responsive: true, pageLength: 5, lengthMenu: [5, 10, 25, 50],
+            language: { search: "", searchPlaceholder: "Search records...", "lengthMenu": "Show _MENU_ entries", "info": "Showing _START_ to _END_ of _TOTAL_ entries",
+                "paginate": { "previous": "<i class='fas fa-chevron-left'></i>", "next": "<i class='fas fa-chevron-right'></i>" }
+            },
+            "dom": '<"row"<"col-sm-12 col-md-6"l><"col-sm-12 col-md-6"f>><"row"<"col-sm-12"tr>><"row"<"col-sm-12 col-md-5"i><"col-sm-12 col-md-7"p>>',
+        });
+    });
+</script>
+
+<!-- NEW: JS for COMBINED Animations -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('interactive-canvas');
+        if (!canvas) return;
+        const ctx = canvas.getContext('2d');
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+
+        let backgroundParticles = [];
+        let flowParticles = [];
+
+        const mouse = { x: null, y: null };
+
+        // --- Configuration ---
+        const config = {
+            particleColor: getComputedStyle(document.documentElement).getPropertyValue('--particle-color').trim(),
+            lineColor: getComputedStyle(document.documentElement).getPropertyValue('--particle-color').trim(),
+            bgParticleCount: 60,
+            bgParticleRadius: 2,
+            maxDistance: 120, // For constellation lines
+        };
+
+        // --- Particle Classes ---
+        class BackgroundParticle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.size = Math.random() * 1.5 + config.bgParticleRadius;
+                this.directionX = (Math.random() * 0.4) - 0.2;
+                this.directionY = (Math.random() * 0.4) - 0.2;
+            }
+            update() {
+                if (this.x > canvas.width || this.x < 0) this.directionX = -this.directionX;
+                if (this.y > canvas.height || this.y < 0) this.directionY = -this.directionY;
+                this.x += this.directionX;
+                this.y += this.directionY;
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = config.particleColor;
+                ctx.fill();
+            }
+        }
+
+        class FlowParticle {
+            constructor(startX, startY, endX, endY) {
+                this.x = startX;
+                this.y = startY;
+                this.endX = endX + (Math.random() - 0.5) * 200;
+                this.endY = endY;
+                this.size = Math.random() * 2 + 1.5;
+                this.speed = Math.random() * 0.03 + 0.02;
+                this.progress = 0;
+                this.life = 1;
+            }
+            update() {
+                this.progress += this.speed;
+                this.life -= 0.015;
+                if (this.progress < 1) {
+                    const easeOutQuad = t => t * (2 - t);
+                    const easedProgress = easeOutQuad(this.progress);
+                    this.x = (1 - easedProgress) * this.x + easedProgress * this.endX;
+                    this.y = (1 - easedProgress) * this.y + easedProgress * this.endY;
+                }
+            }
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(0, 150, 136, ${Math.max(0, this.life)})`;
+                ctx.fill();
+            }
+        }
+
+        // --- Animation Logic ---
+        function init() {
+            backgroundParticles = [];
+            for (let i = 0; i < config.bgParticleCount; i++) {
+                backgroundParticles.push(new BackgroundParticle());
+            }
+        }
+
+        function connect() {
+            let opacityValue;
+            for (let a = 0; a < backgroundParticles.length; a++) {
+                for (let b = a; b < backgroundParticles.length; b++) {
+                    const distance = Math.hypot(backgroundParticles[a].x - backgroundParticles[b].x, backgroundParticles[a].y - backgroundParticles[b].y);
+                    if (distance < config.maxDistance) {
+                        opacityValue = 1 - (distance / config.maxDistance);
+                        ctx.strokeStyle = `rgba(0, 150, 136, ${opacityValue * 0.5})`;
+                        ctx.lineWidth = 1;
+                        ctx.beginPath();
+                        ctx.moveTo(backgroundParticles[a].x, backgroundParticles[a].y);
+                        ctx.lineTo(backgroundParticles[b].x, backgroundParticles[b].y);
+                        ctx.stroke();
+                    }
+                }
+            }
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Update and draw background particles and connections
+            backgroundParticles.forEach(p => p.update());
+            backgroundParticles.forEach(p => p.draw());
+            connect();
+
+            // Update and draw flow particles
+            for (let i = flowParticles.length - 1; i >= 0; i--) {
+                const p = flowParticles[i];
+                p.update();
+                p.draw();
+                if (p.life <= 0 || p.progress >= 1) {
+                    flowParticles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // --- Event Listeners ---
+        const actionCards = document.querySelectorAll('.action-card');
+        const targetElement = document.querySelector('.data-table-card');
+
+        if (targetElement) {
+            actionCards.forEach(card => {
+                let intervalId;
+                card.addEventListener('mouseenter', () => {
+                    intervalId = setInterval(() => {
+                        if (flowParticles.length > 150) return;
+                        const cardRect = card.getBoundingClientRect();
+                        const targetRect = targetElement.getBoundingClientRect();
+
+                        const startX = cardRect.left + cardRect.width / 2;
+                        const startY = cardRect.bottom;
+                        const endX = targetRect.left + targetRect.width / 2;
+                        const endY = targetRect.top;
+
+                        for(let i=0; i < 2; i++) {
+                            flowParticles.push(new FlowParticle(startX, startY, endX, endY));
+                        }
+                    }, 50);
+                });
+                card.addEventListener('mouseleave', () => clearInterval(intervalId));
+            });
+        }
+
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            init();
+        });
+
+        // Start everything
+        init();
+        animate();
+    });
+</script>
+<!-- Download Passcode Modal -->
+<div class="modal fade" id="downloadModal" tabindex="-1" aria-labelledby="downloadModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <form action="{{ url_for('download') }}" method="post">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="downloadModalLabel">🔒 Enter Download Passcode</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>If you have the passcode, you can download the full dataset.<br>
+                        Otherwise, an anonymized version will be provided.</p>
+                    <input type="password" name="passcode" class="form-control" placeholder="Enter passcode">
+                </div>
+                <div class="modal-footer">
+                    <button type="submit" class="btn btn-success">Download</button>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+</body>
+</html>

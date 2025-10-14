@@ -1,0 +1,336 @@
+/* Base Styling */
+body {
+    background-color: #f8f9fa;
+    font-family: 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 0;
+}
+
+/* Headings */
+h1, h4 {
+    color: #222;
+    font-weight: bold;
+}
+.invisee-title {
+    color: #009688 !important;
+}
+
+
+/* Links */
+a {
+    text-decoration: none;
+}
+
+
+.hero {
+    background: linear-gradient(to right, #f8fdfb 0%, #009688 100%);
+    color: #024437;  /* dark enough to work on light, still readable over green */
+    border-radius: 0 0 30px 30px;
+    padding: 4rem 1rem;
+    text-align: center;
+}
+
+/* Upload Card Container */
+.form-container {
+    background-color: #ffffff;
+    border-radius: 15px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+}
+
+/* Input Fields */
+input[type=file], input[type=range] {
+    accent-color: #00796b;
+}
+
+/* Range Value Text */
+.range-value {
+    color: #00796b;
+    font-size: 1.2rem;
+}
+
+/* File Upload Enhancements */
+.file-name {
+    font-size: 0.9rem;
+    color: #555;
+    margin-top: 0.5rem;
+}
+
+/* Upload Button */
+.btn-upload {
+    background-color: #009688;
+    color: white;
+    border: none;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.btn-upload:hover {
+    background-color: #00796b;
+}
+
+/* Footer Styling */
+footer {
+    text-align: center;
+    padding: 2rem 0 1rem;
+    font-size: 0.85rem;
+    color: #888;
+}
+
+/* Responsive Spacing for Upload Card */
+.upload-card {
+    margin-top: -2rem;
+    padding: 2rem;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+}
+.feature-hover .hover-content {
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.4s ease, transform 0.4s ease;
+    height: 0;
+    overflow: hidden;
+}
+
+.feature-hover:hover .hover-content {
+    opacity: 1;
+    transform: translateY(0);
+    height: auto;
+}
+
+.feature-icon {
+    color: #009688;
+    margin-right: 0.5rem;
+}
+.hover-card {
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.4s ease;
+    height: 0;
+    overflow: hidden;
+}
+
+.feature-hover:hover .hover-card {
+    opacity: 1;
+    transform: translateY(0);
+    height: auto;
+}
+
+.feature-hover {
+    cursor: pointer;
+    background-color: #ffffff;
+    border-radius: 12px;
+    padding: 1rem;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+    transition: transform 0.3s ease;
+    height: 100%;
+}
+
+.feature-hover:hover {
+    transform: translateY(-5px);
+}
+
+.feature-icon {
+    color: #009688;
+    margin-right: 0.5rem;
+}
+.btn {
+    min-width: 160px;
+    text-align: center;
+}
+
+@media (max-width: 576px) {
+    .btn {
+        width: 100%;
+    }
+}
+.custom-btn {
+    padding: 0.5rem 1.2rem;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+}
+
+.custom-btn-green {
+    background-color: #009688;
+    color: white;
+    border: none;
+}
+.custom-btn-green:hover {
+    background-color: #00796B;
+    color: white;
+}
+
+.custom-btn-yellow {
+    background-color: #FFCA28;
+    color: #212529;
+    border: none;
+}
+.custom-btn-yellow:hover {
+    background-color: #f4b400;
+    color: #212529;
+}
+
+.custom-btn-red {
+    background-color: #ef5350;
+    color: white;
+    border: none;
+}
+.custom-btn-red:hover {
+    background-color: #d32f2f;
+}
+
+.custom-btn-blue {
+    background-color: #64b5f6;
+    color: white;
+    border: none;
+}
+.custom-btn-blue:hover {
+    background-color: #42a5f5;
+}
+
+.custom-btn-outline {
+    border: 2px solid #009688;
+    background-color: transparent;
+    color: #009688;
+}
+.custom-btn-outline:hover {
+    background-color: #009688;
+    color: white;
+}
+html, body {
+    height: 100%;
+}
+
+.table-responsive {
+    height: 100%;
+    overflow-y: auto;
+}
+
+table.dataTable {
+    font-size: 0.95rem;
+}
+html, body {
+    height: 100%;
+}
+
+.table-responsive {
+    overflow-x: auto;
+    overflow-y: auto;
+}
+
+@media (max-width: 768px) {
+    .btn {
+        width: 100%;
+        text-align: center;
+    }
+}
+.highlight-card {
+    background: linear-gradient(to bottom right, #e0f7fa, #b2ebf2); /* soft cyan blend */
+    border-left: 5px solid #009688; /* matches brand color */
+    box-shadow: 0 6px 18px rgba(0, 150, 136, 0.15);
+}
+/* Shared */
+.custom-btn {
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 8px;
+    border: none;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+/* Start Over */
+.custom-btn-white {
+    background-color: #ffffff;
+    color: #009688;
+    border: 2px solid #009688;
+}
+.custom-btn-white:hover {
+    background-color: #e0f2f1;
+    transform: scale(1.02);
+}
+
+/* k-Anonymity */
+.custom-btn-teal {
+    background-color: #009688;
+    color: white;
+}
+.custom-btn-teal:hover {
+    background-color: #00796b;
+    transform: scale(1.02);
+}
+
+/* ℓ-Diversity */
+.custom-btn-mint {
+    background-color: #80cbc4;
+    color: #004d40;
+}
+.custom-btn-mint:hover {
+    background-color: #4db6ac;
+    transform: scale(1.02);
+}
+
+/* t-Closeness */
+.custom-btn-peach {
+    background-color: #ff8a65;
+    color: white;
+}
+.custom-btn-peach:hover {
+    background-color: #f4511e;
+    transform: scale(1.02);
+}
+
+/* Summary */
+.custom-btn-blue {
+    background-color: #4dd0e1;
+    color: #004d40;
+}
+.custom-btn-blue:hover {
+    background-color: #26c6da;
+    transform: scale(1.02);
+}
+
+/* Download */
+.custom-btn-outline {
+    background-color: transparent;
+    color: #009688;
+    border: 2px solid #009688;
+}
+.custom-btn-outline:hover {
+    background-color: #009688;
+    color: white;
+    transform: scale(1.02);
+}
+:root {
+    --bs-primary: #009688;
+    --bs-info: #3b82f6;
+    --bs-success: #43a047;
+    --bs-warning: #ffa726;
+}
+
+.site-footer {
+    padding: 2.5rem 0;
+    margin-top: 2rem;
+    border-top: 1px solid rgba(0, 0, 0, 0.05);
+    background-color: rgba(255, 255, 255, 0.5);
+}
+.custom-btn {
+    border-radius: 50rem;
+    font-weight: 600;
+    padding: 0.75rem 1.5rem;
+    font-size: 1.25rem;
+    border: 2px solid transparent;
+    transition: all 0.25s ease-in-out;
+}
+
+.custom-btn-mint {
+    background-color: #009688;
+    border-color: #009688;
+    color: white;
+}
+
+.custom-btn-mint:hover {
+    background-color: #00796b;
+    border-color: #00796b;
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 150, 136, 0.4);
+}

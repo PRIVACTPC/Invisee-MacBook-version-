@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>KNMI Import | InviseeAI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <!-- Font Awesome for icons (optional but good to keep for consistency) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+
+    <style>
+        :root {
+            --particle-color: rgba(0, 150, 136, 0.6);
+        }
+
+        body {
+            background: linear-gradient(-45deg, #e0f2f1, #e3f2fd, #e8f5e9, #e0f2f1);
+            background-size: 400% 400%;
+            animation: gradient-animation 20s ease infinite;
+            font-family: 'Segoe UI', sans-serif;
+            color: #2a3f5a;
+            overflow-x: hidden;
+        }
+
+        @keyframes gradient-animation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+
+        #interactive-canvas {
+            position: fixed; top: 0; left: 0;
+            width: 100%; height: 100%; z-index: -1;
+        }
+
+        .container { position: relative; z-index: 1; }
+
+        .card-glass {
+            background-color: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 1rem;
+            padding: 2.5rem;
+            box-shadow: 0 8px 32px rgba(31, 38, 135, 0.1);
+        }
+
+        .btn-primary, .btn-success {
+            border-radius: 2rem;
+            font-weight: 500;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .btn-primary {
+            background-color: #009688; border-color: #009688;
+        }
+        .btn-primary:hover {
+            background-color: #00796b; border-color: #00796b;
+            transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0, 150, 136, 0.3);
+        }
+
+        .btn-success {
+            background-color: #4CAF50; border-color: #4CAF50;
+        }
+        .btn-success:hover {
+            background-color: #45a049; border-color: #45a049;
+            transform: translateY(-2px); box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+
+        .btn-outline-secondary { border-radius: 2rem; }
+        .form-select:focus, .form-control:focus, .form-check-input:focus {
+            border-color: #009688;
+            box-shadow: 0 0 0 0.25rem rgba(0, 150, 136, 0.25);
+        }
+        .form-check-input:checked {
+            background-color: #009688;
+            border-color: #009688;
+        }
+
+        .step-indicator {
+            font-size: 0.9rem;
+            color: #009688;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+    </style>
+</head>
+<body>
+<canvas id="interactive-canvas"></canvas>
+
+<div class="container py-5">
+    <div class="card-glass mx-auto" style="max-width: 600px;">
+        <div class="mb-4 text-center">
+            <h2 class="fw-bold mb-2" style="color: #009688;">KNMI Data Importer</h2>
+            <p class="text-muted mb-0">Step-by-step import from the Dutch Open Weather API.</p>
+        </div>
+
+        <!-- Step Indicator -->
+        <div class="mb-4 text-center">
+            {% if step == 'dataset' %}<div class="step-indicator">Step 1 of 4: Select Dataset</div>{% endif %}
+            {% if step == 'version' %}<div class="step-indicator">Step 2 of 4: Select Version</div>{% endif %}
+            {% if step == 'file' %}<div class="step-indicator">Step 3 of 4: Choose File</div>{% endif %}
+            {% if step == 'confirm' %}<div class="step-indicator">Step 4 of 4: Confirm Download</div>{% endif %}
+        </div>
+
+        <!-- Form Section -->
+        <form method="post">
+            {% if step == 'dataset' %}
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Available Datasets:</label>
+                    {% for d in datasets %}
+                        <div class="form-check my-2">
+                            <input class="form-check-input" type="radio" name="dataset" value="{{ d }}" id="dataset_{{ loop.index }}" required>
+                            <label class="form-check-label" for="dataset_{{ loop.index }}">{{ d }}</label>
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg">Next <i class="fas fa-arrow-right ms-2"></i></button>
+                </div>
+
+            {% elif step == 'version' %}
+                <p><strong>Dataset:</strong> {{ dataset }}</p>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Select Version:</label>
+                    {% for v in versions %}
+                        <div class="form-check my-2">
+                            <input class="form-check-input" type="radio" name="version" value="{{ v }}" id="version_{{ loop.index }}" required>
+                            <label class="form-check-label" for="version_{{ loop.index }}">{{ v }}</label>
+                        </div>
+                    {% endfor %}
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg">Next <i class="fas fa-arrow-right ms-2"></i></button>
+                </div>
+
+            {% elif step == 'file' %}
+                <p><strong>Dataset:</strong> {{ dataset }}</p>
+                <p><strong>Version:</strong> {{ version }}</p>
+                <div class="mb-3">
+                    <label class="form-label fw-bold">Select File:</label>
+                    <select name="filename" class="form-select" required>
+                        {% for f in files %}
+                            <option value="{{ f }}">{{ f }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg">Next <i class="fas fa-arrow-right ms-2"></i></button>
+                </div>
+
+            {% elif step == 'confirm' %}
+                <p class="text-center"><strong>Confirm Download:</strong></p>
+                <p class="text-center fs-5 text-muted">{{ filename }}</p>
+                <input type="hidden" name="confirm" value="1">
+                <div class="d-grid mt-4">
+                    <button type="submit" class="btn btn-success btn-lg"><i class="fas fa-download me-2"></i>Download & Load</button>
+                </div>
+            {% endif %}
+        </form>
+
+        <!-- Back to Home -->
+        <div class="mt-4 text-center">
+            <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-home me-2"></i>Back to Home
+            </a>
+        </div>
+    </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('interactive-canvas'); if (!canvas) return; const ctx = canvas.getContext('2d');
+        let particlesArray;
+        const config = { particleCount: 80, particleColor: getComputedStyle(document.documentElement).getPropertyValue('--particle-color').trim(), particleRadius: 2, maxDistance: 130 };
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        resizeCanvas();
+        const mouse = { x: null, y: null };
+        window.addEventListener('mousemove', (event) => { mouse.x = event.x; mouse.y = event.y; });
+        window.addEventListener('mouseout', () => { mouse.x = null; mouse.y = null; });
+        class Particle { constructor() { this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height; this.size = Math.random() * 1.5 + config.particleRadius; this.directionX = (Math.random() * 0.4) - 0.2; this.directionY = (Math.random() * 0.4) - 0.2; } draw() { ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fillStyle = config.particleColor; ctx.fill(); } update() { if (this.x > canvas.width || this.x < 0) { this.directionX = -this.directionX; } if (this.y > canvas.height || this.y < 0) { this.directionY = -this.directionY; } this.x += this.directionX; this.y += this.directionY; this.draw(); } }
+        function init() { particlesArray = []; for (let i = 0; i < config.particleCount; i++) { particlesArray.push(new Particle()); } }
+        function animate() { requestAnimationFrame(animate); ctx.clearRect(0, 0, canvas.width, canvas.height); for (let particle of particlesArray) { particle.update(); } connect(); }
+        function connect() { for (let a = 0; a < particlesArray.length; a++) { for (let b = a; b < particlesArray.length; b++) { const distance = Math.hypot(particlesArray[a].x - particlesArray[b].x, particlesArray[a].y - particlesArray[b].y); if (distance < config.maxDistance) { const opacityValue = 1 - (distance / config.maxDistance); ctx.strokeStyle = `rgba(0, 150, 136, ${opacityValue * 0.7})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(particlesArray[a].x, particlesArray[a].y); ctx.lineTo(particlesArray[b].x, particles[b].y); ctx.stroke(); } } } }
+        window.addEventListener('resize', () => { resizeCanvas(); init(); });
+        init(); animate();
+    });
+</script>
+
+</body>
+</html>

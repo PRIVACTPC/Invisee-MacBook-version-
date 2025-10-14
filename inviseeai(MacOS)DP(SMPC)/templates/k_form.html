@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Configure k-Anonymity | InviseeAI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Bootstrap & Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet" />
+
+    <style>
+        :root {
+            --bs-primary: #009688; /* Teal */
+            --bs-info: #3b82f6;    /* Blue */
+            --particle-color: rgba(0, 150, 136, 0.6);
+        }
+
+        body {
+            background: linear-gradient(to right, #ffffff, #e3f2fd, #d1f2eb);
+            font-family: 'Segoe UI', sans-serif;
+            overflow-x: hidden; /* Prevent horizontal scroll */
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+
+        #interactive-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+        }
+
+        .main-container {
+            max-width: 780px; margin: 0 auto; padding-left: 1rem;
+            padding-right: 1rem; position: relative; z-index: 1;
+        }
+
+        @media (min-width: 768px) {
+            body { padding-top: 4rem; padding-bottom: 4rem; }
+        }
+
+        .form-card {
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px);
+            padding: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 1.25rem; box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+
+        @media (min-width: 768px) {
+            .form-card { padding: 2.5rem 3rem; }
+        }
+
+        .form-step-heading { font-weight: 600; color: #333; }
+        .info-popover-trigger { color: var(--bs-info); cursor: pointer; }
+
+        .controls-header {
+            display: flex; justify-content: space-between; align-items: center;
+            flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem;
+        }
+
+        .column-pills-container {
+            display: flex; flex-wrap: wrap; gap: 0.75rem; padding: 1rem;
+            border: 1px solid #e0e0e0; border-radius: 0.5rem; background-color: #fcfcfc;
+        }
+        .column-pill {
+            cursor: pointer; user-select: none; font-weight: 500; background-color: #fff;
+            color: #495057; border: 1px solid #ced4da; padding: 0.4rem 0.9rem;
+            transition: all 0.2s ease-in-out;
+        }
+        .column-pill:hover:not(.active) { border-color: var(--bs-primary); color: var(--bs-primary); transform: translateY(-1px); }
+        .column-pill.active { background-color: var(--bs-primary); border-color: var(--bs-primary); color: #fff; box-shadow: 0 2px 8px rgba(0, 150, 136, 0.3); }
+        .hidden-checkboxes { display: none; }
+        .badge.bg-primary { background-color: var(--bs-primary) !important; }
+
+        .custom-btn { border-radius: 50rem; font-weight: 500; padding: 0.6rem 1.2rem; border-width: 2px; transition: all 0.2s ease-in-out; }
+        .custom-btn-mint { background-color: var(--bs-primary); border-color: var(--bs-primary); color: white; }
+        .custom-btn-mint:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0, 150, 136, 0.3); }
+        .custom-btn-outline { border-color: #6c757d; color: #495057; }
+        .custom-btn-outline:hover { background-color: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+<canvas id="interactive-canvas"></canvas>
+<div class="container main-container">
+    <div class="card form-card">
+        <div class="text-center mb-4">
+            <h1 class="display-6 fw-bold invisee-title">Configure k-Anonymity</h1>
+            <p class="text-muted">Define your anonymity level and choose which columns to anonymize.</p>
+        </div>
+        <hr class="my-4">
+        <form method="POST" action="/k_anonymize">
+            <div class="mb-5">
+                <h4 class="form-step-heading mb-3">Step 1: Define Level (k)</h4>
+                <div class="d-flex align-items-center mb-2">
+                    <label for="k_value_slider" class="form-label mb-0 me-2"><strong>Set 'k' Value:</strong></label>
+                    <i class="fas fa-info-circle info-popover-trigger" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right" title="What is 'k'?" data-bs-content="The minimum number of records that must share the same identifiers. A higher k increases anonymity."></i>
+                </div>
+                <div class="d-flex align-items-center">
+                    <input type="range" class="form-range me-3" id="k_value_slider" name="k_value" min="2" max="50" value="3" required>
+                    <span class="badge bg-primary rounded-pill fs-6" id="k_value_display" style="min-width: 40px;">3</span>
+                </div>
+
+                <!-- ***** NEW DESCRIPTION ADDED HERE ***** -->
+                <div class="form-text mt-2 ps-1">
+                    This setting is a trade-off: <br/>
+                    <i class="fas fa-arrow-up text-success me-1"></i> <strong>Higher k:</strong> Stronger Privacy <br/>
+                    <i class="fas fa-arrow-down text-warning me-1"></i> <strong>Lower k:</strong> Higher Data Utility
+                </div>
+                <!-- ************************************* -->
+
+            </div>
+
+            <div class="mb-5">
+                <h4 class="form-step-heading mb-3">Step 2: Select Quasi-Identifiers</h4>
+                <div class="controls-header">
+                    <div class="d-flex align-items-center">
+                        <label class="form-label mb-0 me-2"><strong>Columns:</strong></label>
+                        <i class="fas fa-info-circle info-popover-trigger" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right" title="Quasi-Identifiers" data-bs-content="Columns that can identify someone when combined (e.g., ZIP, Age)."></i>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge text-bg-light" id="selection-counter"></span>
+                        <div class="btn-group btn-group-sm">
+                            <button type="button" class="btn btn-outline-secondary" id="select-all-btn">Select All</button>
+                            <button type="button" class="btn btn-outline-secondary" id="deselect-all-btn">Deselect All</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="column-pills-container">
+                    {% for col in columns %}<span class="badge rounded-pill column-pill active" data-column-name="{{ col }}">{{ col }}</span>{% endfor %}
+                </div>
+                <div class="hidden-checkboxes">
+                    {% for col in columns %}<input type="checkbox" name="quasi_columns" value="{{ col }}" id="check-{{ col }}" checked>{% endfor %}
+                </div>
+            </div>
+
+            <div class="d-grid gap-2 d-md-flex justify-content-md-between align-items-center mt-4 pt-4 border-top">
+                <a href="{{ url_for('preview') }}" class="btn custom-btn custom-btn-outline">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Preview
+                </a>
+                <button type="submit" id="submit-btn" class="btn custom-btn custom-btn-mint fs-6">
+                    <i class="fas fa-shield-halved me-2"></i>Apply k-Anonymity
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const popovers = document.querySelectorAll('[data-bs-toggle="popover"]');
+        const slider = document.getElementById('k_value_slider');
+        const display = document.getElementById('k_value_display');
+        const pills = document.querySelectorAll('.column-pill');
+        const checkboxes = document.querySelectorAll('input[name="quasi_columns"]');
+        const selectAllBtn = document.getElementById('select-all-btn');
+        const deselectAllBtn = document.getElementById('deselect-all-btn');
+        const counterElement = document.getElementById('selection-counter');
+        const submitBtn = document.getElementById('submit-btn');
+        const totalColumns = checkboxes.length;
+
+        function updateUIState() {
+            const selectedCount = document.querySelectorAll('input[name="quasi_columns"]:checked').length;
+            counterElement.textContent = `${selectedCount} / ${totalColumns} selected`;
+            checkboxes.forEach(cb => {
+                const pill = document.querySelector(`.column-pill[data-column-name="${cb.value}"]`);
+                if (pill) { pill.classList.toggle('active', cb.checked); }
+            });
+            submitBtn.disabled = selectedCount === 0;
+            selectAllBtn.disabled = selectedCount === totalColumns;
+            deselectAllBtn.disabled = selectedCount === 0;
+        }
+
+        popovers.forEach(el => new bootstrap.Popover(el));
+        slider.addEventListener('input', () => { display.textContent = slider.value; });
+        pills.forEach(pill => {
+            pill.addEventListener('click', () => {
+                const name = pill.dataset.columnName;
+                const checkbox = document.getElementById(`check-${name}`);
+                checkbox.checked = !checkbox.checked;
+                updateUIState();
+            });
+        });
+        selectAllBtn.addEventListener('click', () => { checkboxes.forEach(cb => cb.checked = true); updateUIState(); });
+        deselectAllBtn.addEventListener('click', () => { checkboxes.forEach(cb => cb.checked = false); updateUIState(); });
+        updateUIState();
+    });
+</script>
+
+<!-- JS for Particle Constellation Background -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('interactive-canvas'); if (!canvas) return; const ctx = canvas.getContext('2d');
+        let particlesArray;
+        const config = { particleCount: 80, particleColor: getComputedStyle(document.documentElement).getPropertyValue('--particle-color').trim(), particleRadius: 2, maxDistance: 130 };
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        resizeCanvas();
+        const mouse = { x: null, y: null };
+        window.addEventListener('mousemove', (event) => { mouse.x = event.x; mouse.y = event.y; });
+        window.addEventListener('mouseout', () => { mouse.x = null; mouse.y = null; });
+        class Particle { constructor() { this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height; this.size = Math.random() * 1.5 + config.particleRadius; this.directionX = (Math.random() * 0.4) - 0.2; this.directionY = (Math.random() * 0.4) - 0.2; } draw() { ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fillStyle = this.color; ctx.fill(); } update() { if (this.x > canvas.width || this.x < 0) { this.directionX = -this.directionX; } if (this.y > canvas.height || this.y < 0) { this.directionY = -this.directionY; } this.x += this.directionX; this.y += this.directionY; this.draw(); } }
+        function init() { particlesArray = []; for (let i = 0; i < config.particleCount; i++) { particlesArray.push(new Particle()); } }
+        function animate() { requestAnimationFrame(animate); ctx.clearRect(0, 0, canvas.width, canvas.height); for (let particle of particlesArray) { particle.update(); } connect(); }
+        function connect() { for (let a = 0; a < particlesArray.length; a++) { for (let b = a; b < particlesArray.length; b++) { const distance = Math.hypot(particlesArray[a].x - particlesArray[b].x, particlesArray[a].y - particlesArray[b].y); if (distance < config.maxDistance) { const opacityValue = 1 - (distance / config.maxDistance); ctx.strokeStyle = `rgba(0, 150, 136, ${opacityValue * 0.7})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(particlesArray[a].x, particlesArray[a].y); ctx.lineTo(particlesArray[b].x, particlesArray[b].y); ctx.stroke(); } } } }
+        window.addEventListener('resize', () => { resizeCanvas(); init(); });
+        init(); animate();
+    });
+</script>
+
+</body>
+</html>

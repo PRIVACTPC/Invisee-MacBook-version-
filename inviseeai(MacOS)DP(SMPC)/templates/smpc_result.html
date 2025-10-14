@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>SMPC Simulation Results | InviseeAI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+    <style>
+        :root {
+            --primary: #009688;
+            --bg-gradient: linear-gradient(135deg, #f7fffb, #e8f1ff);
+        }
+
+        body {
+            background: var(--bg-gradient);
+            min-height: 100vh;
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            padding: 2.5rem 1rem;
+        }
+
+        .card-glass {
+            backdrop-filter: blur(12px);
+            background: rgba(255, 255, 255, 0.94);
+            border-radius: 1.25rem;
+            box-shadow: 0 20px 50px rgba(0, 50, 90, 0.12);
+            border: 1px solid rgba(0, 150, 136, 0.08);
+        }
+
+        .summary-value {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: var(--primary);
+        }
+
+        table thead {
+            background-color: rgba(0, 150, 136, 0.1);
+        }
+
+        .list-icon {
+            color: var(--primary);
+        }
+    </style>
+</head>
+<body>
+<div class="container" style="max-width: 1080px;">
+    <div class="card card-glass p-4 p-lg-5">
+        <div class="d-flex flex-wrap align-items-center justify-content-between mb-4">
+            <div>
+                <h1 class="h2 fw-bold text-primary mb-2">Secure Multi-Party Sum — Results</h1>
+                <p class="text-muted mb-0">The simulation ran <span class="fw-semibold">{{ result.parties|length }}</span> parties using Docker-backed containers.</p>
+            </div>
+            <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill">
+                <i class="fas fa-seedling text-success me-1"></i> Seed:
+                {% if result.seed is not none %}
+                    {{ result.seed }}
+                {% else %}
+                    randomised
+                {% endif %}
+            </span>
+        </div>
+
+        <div class="alert alert-light border rounded-4 d-flex flex-wrap justify-content-between align-items-center gap-2 mb-4">
+            <div>
+                <i class="fas fa-database text-primary me-2"></i>
+                Aggregated column: <code>{{ selected_column }}</code>
+            </div>
+            <div>
+                <i class="fas fa-user-friends text-primary me-2"></i>
+                Rows used: {{ chosen_values|length }}
+            </div>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-md-4">
+                <div class="p-3 border rounded-4 h-100">
+                    <p class="text-muted text-uppercase small mb-1">Actual total (not revealed during protocol)</p>
+                    <div class="summary-value">{{ '%.4f' % result.actual_sum }}</div>
+                    <p class="small text-muted mb-0">Baseline sum of all private inputs.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 border rounded-4 h-100">
+                    <p class="text-muted text-uppercase small mb-1">Aggregator view (masked sum)</p>
+                    <div class="summary-value">{{ '%.4f' % aggregator_view.masked_sum }}</div>
+                    <p class="small text-muted mb-0">This is what the orchestrator sees before removing masks.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="p-3 border rounded-4 h-100">
+                    <p class="text-muted text-uppercase small mb-1">Recovered secure sum</p>
+                    <div class="summary-value">{{ '%.4f' % result.recovered_sum }}</div>
+                    <p class="small text-muted mb-0">
+                        Difference vs. actual: {{ '%.6f' % (result.recovered_sum - result.actual_sum) }}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <h2 class="h5 fw-bold mb-3">Participant breakdown</h2>
+            <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th scope="col">Party</th>
+                            <th scope="col">Private value*</th>
+                            <th scope="col">Incoming mask</th>
+                            <th scope="col">Generated mask</th>
+                            <th scope="col">Masked contribution</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for party in result.parties %}
+                            <tr>
+                                <th scope="row">#{{ party.party_id }}</th>
+                                <td>{{ '%.4f' % party.private_value }}</td>
+                                <td>{{ '%.4f' % party.incoming_mask }}</td>
+                                <td>{{ '%.4f' % party.outgoing_mask }}</td>
+                                <td>{{ '%.4f' % party.masked_contribution }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="small text-muted mb-0">
+                * Private values are shown here for learning purposes only. In a real deployment, each party keeps its value secret.
+            </p>
+        </div>
+
+        <div class="row g-4 mb-4">
+            <div class="col-lg-6">
+                <div class="border rounded-4 p-3 h-100">
+                    <h2 class="h5 fw-bold mb-3">What the orchestrator sees</h2>
+                    <ul class="list-unstyled mb-0">
+                        {% for masked in aggregator_view.masked_contributions %}
+                            <li class="mb-2">
+                                <i class="fas fa-eye-slash list-icon me-2"></i>
+                                Masked contribution: {{ '%.4f' % masked }}
+                            </li>
+                        {% endfor %}
+                    </ul>
+                    <p class="small text-muted mt-3 mb-0">
+                        Running total: {{ '%.4f' % aggregator_view.masked_sum }}. The orchestrator then subtracts the final mask
+                        ({{ '%.4f' % result.final_mask }}) and adds back the initial mask ({{ '%.4f' % result.initial_mask }}) to recover the true sum.
+                    </p>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                <div class="border rounded-4 p-3 h-100">
+                    <h2 class="h5 fw-bold mb-3">How the protocol works</h2>
+                    <ol class="mb-0">
+                        {% for item in result.explanation %}
+                            <li class="mb-2">{{ item }}</li>
+                        {% endfor %}
+                    </ol>
+                    <p class="small text-muted mb-0">Random masks were drawn from ±{{ '%.2f' % result.noise_range }}.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <h2 class="h5 fw-bold mb-3">Sanitised inputs sampled from the dataset</h2>
+            <div class="table-responsive">
+                <table class="table table-bordered table-sm align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">Party</th>
+                            <th scope="col">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for value in chosen_values %}
+                            <tr>
+                                <th scope="row">#{{ loop.index }}</th>
+                                <td>{{ '%.4f' % value }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <p class="small text-muted mb-0">Only numeric columns are eligible. Non-numeric data is excluded before the simulation starts.</p>
+        </div>
+
+        <div class="d-flex flex-wrap gap-2">
+            <a class="btn btn-outline-secondary" href="{{ url_for('smpc_demo_form') }}">
+                <i class="fas fa-arrow-left me-2"></i>Run again
+            </a>
+            <a class="btn btn-primary" href="{{ url_for('index') }}">
+                <i class="fas fa-home me-2"></i>Back to Home
+            </a>
+        </div>
+    </div>
+</div>
+</body>
+</html>
