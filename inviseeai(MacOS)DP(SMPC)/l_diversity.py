@@ -384,6 +384,66 @@ def mask_values_by_rtl_positional_cover(series: pd.Series, l: int) -> pd.Series:
     _cover("right")
     _cover("left")
 
+    # Propagate masking to characters that are adjacent (within one position)
+    # to masked entries in the immediate previous/next rows. This helps cover
+    # near matches that differ by slight positional shifts while keeping the
+    # overall logic intact.
+    if len(buffers) > 1 and scan_limit > 0:
+        snapshots = [buf.copy() for buf in buffers]
+
+        def within_l_range(buf_len: int, pos: int) -> bool:
+            """Check whether index `pos` falls within the first/last ℓ characters."""
+            return (pos + 1) <= l or (buf_len - pos) <= l
+
+        for row_idx, buf in enumerate(buffers):
+            buf_len = len(buf)
+            if buf_len == 0:
+                continue
+            neighbor_indices = []
+            if row_idx > 0:
+                neighbor_indices.append(row_idx - 1)
+            if row_idx < len(buffers) - 1:
+                neighbor_indices.append(row_idx + 1)
+            if not neighbor_indices:
+                continue
+
+            for pos, ch in enumerate(buf):
+                if ch == '*' or not ch.isalnum():
+                    continue
+                if not within_l_range(buf_len, pos):
+                    continue
+
+                right_offset = buf_len - pos - 1
+                should_mask = False
+
+                for neighbor_idx in neighbor_indices:
+                    neighbor = snapshots[neighbor_idx]
+                    neighbor_len = len(neighbor)
+                    if neighbor_len == 0:
+                        continue
+
+                    # Left-aligned neighbors
+                    for delta in (-1, 0, 1):
+                        npos = pos + delta
+                        if 0 <= npos < neighbor_len and neighbor[npos] == '*':
+                            should_mask = True
+                            break
+                    if should_mask:
+                        break
+
+                    # Right-aligned neighbors (match by suffix position)
+                    neighbor_pos = neighbor_len - right_offset - 1
+                    for delta in (-1, 0, 1):
+                        npos = neighbor_pos + delta
+                        if 0 <= npos < neighbor_len and neighbor[npos] == '*':
+                            should_mask = True
+                            break
+                    if should_mask:
+                        break
+
+                if should_mask:
+                    buf[pos] = '*'
+
     out = [''.join(buf) for buf in buffers]
     return pd.Series(out, index=series.index)
 
