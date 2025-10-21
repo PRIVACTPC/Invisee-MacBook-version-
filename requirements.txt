@@ -22,3 +22,4 @@ python-dotenv
 
 # Bundling Tool (for development only, not needed in the final exe)
 pyinstaller
+gunicorn
