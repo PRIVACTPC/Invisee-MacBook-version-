@@ -31,7 +31,6 @@ def mask_similar_from_end(base: str, neighbor: str, l: int) -> str:
     return "".join(masked)
 
 
-
 # --- Helper: right-to-left charwise masking for contextual masking ---
 def _mask_rtl_charwise(base: str, neighbor: str, l: int) -> str:
     """Mask up to ℓ rightmost characters in *base* where *neighbor* matches at the same right-aligned position.

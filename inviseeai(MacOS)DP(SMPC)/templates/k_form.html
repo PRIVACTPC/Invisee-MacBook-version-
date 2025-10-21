@@ -127,7 +127,7 @@
                     {% for col in columns %}<span class="badge rounded-pill column-pill active" data-column-name="{{ col }}">{{ col }}</span>{% endfor %}
                 </div>
                 <div class="hidden-checkboxes">
-                    {% for col in columns %}<input type="checkbox" name="quasi_columns" value="{{ col }}" id="check-{{ col }}" checked>{% endfor %}
+                    {% for col in columns %}<input type="checkbox" name="quasi_columns" value="{{ col }}" id="check-{{ col }}" unchecked>{% endfor %}
                 </div>
             </div>
 

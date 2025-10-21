@@ -100,3 +100,20 @@ def apply_t_closeness(data, quasi_columns, sensitive_column, t_value):
 #     advisor = PrivacyAdvisor(use_ml=True, use_llm=True)
 #     result = advisor.analyze(df)
 #     return result
+
+
+
+# In services.py...
+import pandas as pd
+from io import StringIO
+from date_shifter import shift_dates # Import the new function
+
+# ... (your other service functions like apply_k_anonymity)
+
+def apply_date_shifting(csv_text: str, id_col: str, date_cols: list, max_days: int) -> pd.DataFrame:
+    """
+    Reads a CSV string, applies date shifting, and returns the resulting DataFrame.
+    """
+    df = pd.read_csv(StringIO(csv_text))
+    shifted_df = shift_dates(df, id_col, date_cols, max_days)
+    return shifted_df

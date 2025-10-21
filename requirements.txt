@@ -1,0 +1,24 @@
+
+
+# Web Framework and Server
+Flask
+waitress
+
+# Data Handling and Scientific Computing
+pandas
+numpy
+scikit-learn
+statsmodels
+matplotlib
+openpyxl
+netCDF4
+
+# Anonymization
+anonypy
+
+# Utilities
+requests
+python-dotenv
+
+# Bundling Tool (for development only, not needed in the final exe)
+pyinstaller

@@ -1,1 +1,0 @@
-# Anonymizer app package

@@ -9,7 +9,7 @@ from flask import Flask, Response, flash, redirect, render_template, request, se
 
 from api_client_logic import get_client
 from run_simulation import run_pipeline
-from services import apply_k_anonymity, apply_l_contextual_mask, generate_summary
+from services import apply_k_anonymity, apply_l_contextual_mask, generate_summary, apply_date_shifting
 from differential_privacy import mask_string_columns, apply_differential_privacy
 from smpc_simulation import simulate_secure_sum, DockerSMPCError
 
@@ -751,6 +751,75 @@ def run_docker_simulation():
         group_col=group_col,
         target_col=target_col
     )
+import warnings # Add this import at the top of your app.py
+
+@app.route("/date_shift_form", methods=["GET"])
+def date_shift_form():
+    try:
+        df = _load_working_df()
+    except DatasetNotLoaded:
+        flash("No dataset available. Please upload a file first.", "danger")
+        return redirect(url_for("index"))
+
+    all_columns = df.columns.tolist()
+    date_columns = []
+    sample_size = min(100, len(df))
+    
+    for col in all_columns:
+        if pd.api.types.is_datetime64_any_dtype(df[col]):
+            date_columns.append(col)
+            continue
+            
+        if df[col].dtype == 'object':
+            try:
+                sample = df[col].dropna().sample(n=min(len(df[col].dropna()), 5))
+                if not sample.empty:
+                    # --- NEW: Temporarily suppress the warning here ---
+                    with warnings.catch_warnings():
+                        warnings.simplefilter("ignore", UserWarning)
+                        pd.to_datetime(sample, errors='raise')
+                    # --------------------------------------------------
+                    date_columns.append(col)
+            except (ValueError, TypeError):
+                continue
+
+    return render_template(
+        "date_shift_form.html",
+        columns=all_columns,
+        date_columns=date_columns
+    )
+
+@app.route("/apply_date_shift", methods=["POST"])
+def apply_date_shift():
+    try:
+        id_col = request.form["id_column"]
+        date_cols = request.form.getlist("date_columns")
+        max_days = int(request.form["max_shift_days"])
+        csv_text = _current_csv_text()
+    except (KeyError, ValueError):
+        flash("Invalid form submission. Please fill out all required fields correctly.", "danger")
+        return redirect(url_for("date_shift_form"))
+    except DatasetNotLoaded:
+        flash("No dataset available. Please upload a file first.", "danger")
+        return redirect(url_for("index"))
+
+    if not date_cols:
+        flash("You must select at least one date column to shift.", "warning")
+        return redirect(url_for("date_shift_form"))
+
+    try:
+        result_df = apply_date_shifting(csv_text, id_col, date_cols, max_days)
+        _replace_working_csv(result_df.to_csv(index=False))
+        flash(f"Date shifting applied successfully with a max shift of {max_days} days.", "success")
+    except Exception as e:
+        flash(f"Date shifting failed: {e}", "danger")
+        return redirect(url_for("date_shift_form"))
+
+    table_html = result_df.head(100).to_html(classes="table table-striped", index=False)
+    return render_template("preview.html", table=table_html)
+
+
+
 
 if __name__ == "__main__":
     from waitress import serve

@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Configure Date Shifting | InviseeAI</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- Bootstrap & Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" />
+    <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet" />
+
+    <style>
+        :root {
+            --bs-primary: #009688; /* Teal */
+            --bs-info: #3b82f6;    /* Blue */
+            --particle-color: rgba(0, 150, 136, 0.6);
+        }
+
+        body {
+            background: linear-gradient(to right, #ffffff, #e3f2fd, #d1f2eb);
+            font-family: 'Segoe UI', sans-serif;
+            overflow-x: hidden;
+            padding-top: 2rem;
+            padding-bottom: 2rem;
+        }
+
+        #interactive-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+        }
+
+        .main-container {
+            max-width: 780px; margin: 0 auto; padding-left: 1rem;
+            padding-right: 1rem; position: relative; z-index: 1;
+        }
+
+        @media (min-width: 768px) {
+            body { padding-top: 4rem; padding-bottom: 4rem; }
+        }
+
+        .form-card {
+            background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(8px);
+            padding: 1.5rem; border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 1.25rem; box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.1);
+        }
+
+        @media (min-width: 768px) {
+            .form-card { padding: 2.5rem 3rem; }
+        }
+
+        .form-step-heading { font-weight: 600; color: #333; }
+        .info-popover-trigger { color: var(--bs-info); cursor: pointer; }
+
+        .custom-btn { border-radius: 50rem; font-weight: 500; padding: 0.6rem 1.2rem; border-width: 2px; transition: all 0.2s ease-in-out; }
+        .custom-btn-mint { background-color: var(--bs-primary); border-color: var(--bs-primary); color: white; }
+        .custom-btn-mint:hover { transform: translateY(-2px); box-shadow: 0 4px 15px rgba(0, 150, 136, 0.3); }
+        .custom-btn-outline { border-color: #6c757d; color: #495057; }
+        .custom-btn-outline:hover { background-color: #6c757d; color: white; }
+    </style>
+</head>
+<body>
+<canvas id="interactive-canvas"></canvas>
+
+<div class="container main-container">
+    <div class="card form-card">
+        <div class="text-center mb-4">
+            <h1 class="display-6 fw-bold invisee-title">Configure Date Shifting</h1>
+            <p class="text-muted">Shift dates randomly while preserving time intervals for each subject.</p>
+        </div>
+        <hr class="my-4">
+        <form method="POST" action="{{ url_for('apply_date_shift') }}">
+            <!-- Step 1: Identifier Column -->
+            <div class="mb-5">
+                <h4 class="form-step-heading mb-3">Step 1: Select Identifier</h4>
+                <div class="d-flex align-items-center mb-2">
+                    <label for="id_column" class="form-label mb-0 me-2"><strong>Identifier Column:</strong></label>
+                    <i class="fas fa-info-circle info-popover-trigger" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right" title="What is an Identifier?" data-bs-content="The column that uniquely identifies each individual. All records with the same ID will get the same random date shift."></i>
+                </div>
+                <select class="form-select" id="id_column" name="id_column" required>
+                    <option value="" disabled selected>-- Select an identifier column --</option>
+                    {% for col in columns %}
+                        <option value="{{ col }}">{{ col }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Step 2: Select Date Columns -->
+            <div class="mb-5">
+                <h4 class="form-step-heading mb-3">Step 2: Select Date Columns</h4>
+                <div class="d-flex align-items-center mb-2">
+                    <label for="date_columns" class="form-label mb-0 me-2"><strong>Columns to Shift:</strong></label>
+                    <i class="fas fa-info-circle info-popover-trigger" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right" title="Which columns to shift?" data-bs-content="Select one or more columns that contain dates or datetimes. Only columns that could be automatically detected as dates are shown here."></i>
+                </div>
+                
+                <!-- NEW: Conditional logic based on whether date columns were found -->
+                {% if date_columns %}
+                    <select class="form-select" id="date_columns" name="date_columns" multiple required size="8">
+                        {% for col in date_columns %}
+                            <option value="{{ col }}">{{ col }}</option>
+                        {% endfor %}
+                    </select>
+                {% else %}
+                    <div class="alert alert-warning" role="alert">
+                        <h5 class="alert-heading"><i class="fas fa-exclamation-triangle me-2"></i>No Date Columns Detected</h5>
+                        <p class="mb-0">We couldn't automatically find any columns formatted as dates or datetimes in your current dataset. This feature requires at least one date-like column to function.</p>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- Step 3: Max Shift Days -->
+            <div class="mb-5">
+                <h4 class="form-step-heading mb-3">Step 3: Define Shift Range</h4>
+                <div class="d-flex align-items-center mb-2">
+                    <label for="shift_slider" class="form-label mb-0 me-2"><strong>Set Maximum Shift (days):</strong></label>
+                    <i class="fas fa-info-circle info-popover-trigger" data-bs-toggle="popover" data-bs-trigger="hover focus" data-bs-placement="right" title="What does this do?" data-bs-content="A random shift between -X and +X days will be chosen for each subject, where X is the value you set here."></i>
+                </div>
+                <div class="d-flex align-items-center">
+                    <input type="range" class="form-range me-3" id="shift_slider" name="max_shift_days" min="1" max="365" value="30" required>
+                    <span class="badge bg-primary rounded-pill fs-6" id="shift_display" style="min-width: 45px;">30</span>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="d-grid gap-2 d-md-flex justify-content-md-between align-items-center mt-4 pt-4 border-top">
+                <a href="{{ url_for('preview') }}" class="btn custom-btn custom-btn-outline">
+                    <i class="fas fa-arrow-left me-2"></i>Back to Preview
+                </a>
+                <button type="submit" class="btn custom-btn custom-btn-mint fs-6" {% if not date_columns %}disabled{% endif %}>
+                    <i class="fas fa-calendar-alt me-2"></i>Apply Date Shift
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Custom JS for Popovers and Slider -->
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        // Initialize Bootstrap Popovers
+        const popovers = document.querySelectorAll('[data-bs-toggle="popover"]');
+        popovers.forEach(el => new bootstrap.Popover(el));
+
+        // Logic for the shift days slider
+        const slider = document.getElementById('shift_slider');
+        const display = document.getElementById('shift_display');
+        slider.addEventListener('input', () => {
+            display.textContent = slider.value;
+        });
+    });
+</script>
+
+<!-- JS for Particle Constellation Background -->
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const canvas = document.getElementById('interactive-canvas'); if (!canvas) return; const ctx = canvas.getContext('2d');
+        let particlesArray;
+        const config = { particleCount: 80, particleColor: getComputedStyle(document.documentElement).getPropertyValue('--particle-color').trim(), particleRadius: 2, maxDistance: 130 };
+        function resizeCanvas() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
+        resizeCanvas();
+        class Particle { constructor() { this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height; this.size = Math.random() * 1.5 + config.particleRadius; this.directionX = (Math.random() * 0.4) - 0.2; this.directionY = (Math.random() * 0.4) - 0.2; } draw() { ctx.beginPath(); ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2); ctx.fillStyle = config.particleColor; ctx.fill(); } update() { if (this.x > canvas.width || this.x < 0) { this.directionX = -this.directionX; } if (this.y > canvas.height || this.y < 0) { this.directionY = -this.directionY; } this.x += this.directionX; this.y += this.directionY; this.draw(); } }
+        function init() { particlesArray = []; for (let i = 0; i < config.particleCount; i++) { particlesArray.push(new Particle()); } }
+        function animate() { requestAnimationFrame(animate); ctx.clearRect(0, 0, canvas.width, canvas.height); for (let particle of particlesArray) { particle.update(); } connect(); }
+        function connect() { for (let a = 0; a < particlesArray.length; a++) { for (let b = a; b < particlesArray.length; b++) { const distance = Math.hypot(particlesArray[a].x - particlesArray[b].x, particlesArray[a].y - particlesArray[b].y); if (distance < config.maxDistance) { const opacityValue = 1 - (distance / config.maxDistance); ctx.strokeStyle = `rgba(0, 150, 136, ${opacityValue * 0.7})`; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(particlesArray[a].x, particlesArray[a].y); ctx.lineTo(particlesArray[b].x, particlesArray[b].y); ctx.stroke(); } } } }
+        window.addEventListener('resize', () => { resizeCanvas(); init(); });
+        init(); animate();
+    });
+</script>
+
+</body>
+</html>
