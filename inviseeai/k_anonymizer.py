@@ -25,6 +25,72 @@ def k_anonymity(frame: pd.DataFrame, quasi_cols: Sequence[str]) -> int:
     return frame.groupby(list(quasi_cols), dropna=False).size().min()
 
 
+# def _microaggregate(df: pd.DataFrame, quasi_cols: Sequence[str], k: int) -> pd.DataFrame:
+#     data = df[quasi_cols].copy()
+
+#     for col in quasi_cols:
+#         if pd.api.types.is_numeric_dtype(data[col]):
+#             data[col] = data[col].round(0).astype("Int64")
+#         elif pd.api.types.is_datetime64_any_dtype(data[col]):
+#             data[col] = pd.to_datetime(data[col]).dt.floor('D')
+
+#     global_min_max = {}
+#     global_date_min_max = {}
+#     for col in quasi_cols:
+#         if pd.api.types.is_numeric_dtype(data[col]):
+#             s_vals = data[col].dropna()
+#             if not s_vals.empty:
+#                 global_min_max[col] = (int(s_vals.min()), int(s_vals.max()))
+#         elif pd.api.types.is_datetime64_any_dtype(data[col]):
+#             s_vals = pd.to_datetime(data[col].dropna())
+#             if not s_vals.empty:
+#                 global_date_min_max[col] = (s_vals.min(), s_vals.max())
+
+#     scores = pd.Series(0.0, index=df.index)
+#     for col in quasi_cols:
+#         series = data[col]
+#         if pd.api.types.is_numeric_dtype(series):
+#             z = (series - series.mean()) / (series.std(ddof=0) or 1)
+#             scores += z
+#         elif pd.api.types.is_datetime64_any_dtype(series):
+#             ts = pd.to_datetime(series).view("int64")
+#             z = (ts - ts.mean()) / (ts.std(ddof=0) or 1)
+#             scores += z
+
+#     ordered = scores.sort_values().index.to_list()
+#     n = len(ordered)
+#     groups = [ordered[i:i+k] for i in range(0, n, k)]
+#     if len(groups) > 1 and len(groups[-1]) < k:
+#         groups[-2].extend(groups[-1])
+#         groups.pop()
+
+#     df_out = df.copy()
+#     for col in quasi_cols:
+#         if pd.api.types.is_numeric_dtype(df_out[col]):
+#             df_out[col] = df_out[col].astype("object")
+
+#     for grp in groups:
+#         sub = data.loc[grp, quasi_cols]
+#         agg_vals = {}
+#         for col in quasi_cols:
+#             s = sub[col]
+#             if pd.api.types.is_numeric_dtype(s):
+#                 s_vals = s.dropna()
+#                 mn, mx = (int(s_vals.min()), int(s_vals.max())) if not s_vals.empty else ("", "")
+#                 rep = f"{mn}" if mn == mx else f"{mn}–{mx}" if mn != "" and mx != "" else ""
+#             elif pd.api.types.is_datetime64_any_dtype(s):
+#                 s_vals = pd.to_datetime(s.dropna())
+#                 mn, mx = (s_vals.min(), s_vals.max()) if not s_vals.empty else ("", "")
+#                 mn_str = mn.strftime('%Y-%m-%d') if mn else ""
+#                 mx_str = mx.strftime('%Y-%m-%d') if mx else ""
+#                 rep = mn_str if mn_str == mx_str else f"{mn_str} – {mx_str}" if mn_str and mx_str else ""
+#             elif pd.api.types.is_object_dtype(s) or pd.api.types.is_categorical_dtype(s):
+#                 rep = s.mode(dropna=True).iat[0] if not s.dropna().empty else ""
+#             agg_vals[col] = rep
+#         for col, val in agg_vals.items():
+#             df_out.loc[grp, col] = val
+
+#     return df_out
 def _microaggregate(df: pd.DataFrame, quasi_cols: Sequence[str], k: int) -> pd.DataFrame:
     data = df[quasi_cols].copy()
 
@@ -74,10 +140,26 @@ def _microaggregate(df: pd.DataFrame, quasi_cols: Sequence[str], k: int) -> pd.D
         agg_vals = {}
         for col in quasi_cols:
             s = sub[col]
+            # --- START OF MODIFIED SECTION ---
             if pd.api.types.is_numeric_dtype(s):
                 s_vals = s.dropna()
-                mn, mx = (int(s_vals.min()), int(s_vals.max())) if not s_vals.empty else ("", "")
-                rep = f"{mn}" if mn == mx else f"{mn}–{mx}" if mn != "" and mx != "" else ""
+                if not s_vals.empty:
+                    mn = int(s_vals.min())
+                    mx = int(s_vals.max())
+                    
+                    if mn == mx:
+                        # If min and max are the same, create an artificial gap
+                        # The size of the gap depends on k to be dynamic
+                        offset = max(1, k // 2) 
+                        mn_new = max(0, mn - offset) # Prevent age from going below 0
+                        mx_new = mx + offset
+                        rep = f"{mn_new}–{mx_new}"
+                    else:
+                        # Original logic if the values are already different
+                        rep = f"{mn}–{mx}"
+                else:
+                    rep = ""
+            # --- END OF MODIFIED SECTION ---
             elif pd.api.types.is_datetime64_any_dtype(s):
                 s_vals = pd.to_datetime(s.dropna())
                 mn, mx = (s_vals.min(), s_vals.max()) if not s_vals.empty else ("", "")

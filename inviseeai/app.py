@@ -174,10 +174,36 @@ def l_form():
     columns = df.columns.tolist()
     return render_template("l_form.html", columns=columns)
 
+# @app.route("/l_mask", methods=["POST"])
+# def l_mask():
+#     selected_columns = request.form.getlist("columns")
+#     l_value = int(request.form["l_value"])
+#     try:
+#         csv_text = _current_csv_text()
+#     except DatasetNotLoaded:
+#         flash("No dataset available. Please upload a file first.", "danger")
+#         return redirect(url_for("l_form"))
+
+#     try:
+#         new_df = apply_l_contextual_mask(csv_text, selected_columns, l_value)
+#         _replace_working_csv(new_df.to_csv(index=False))
+#         flash(f"ℓ-Diversity masking applied successfully with ℓ = {l_value}.", "success")
+#     except Exception as e:
+#         flash(f"ℓ-Diversity masking failed: {e}", "danger")
+#         return redirect(url_for("l_form"))
+
+#     table_html = new_df.head(100).to_html(classes="table table-striped", index=False)
+#     return render_template("preview.html", table=table_html)
+
+
+
+# Στο app.py
 @app.route("/l_mask", methods=["POST"])
 def l_mask():
     selected_columns = request.form.getlist("columns")
-    l_value = int(request.form["l_value"])
+    # Το 'l_value' σημαίνει τώρα "πόσα γράμματα να κρύψω από το τέλος"
+    chars_to_mask = int(request.form["l_value"])
+    
     try:
         csv_text = _current_csv_text()
     except DatasetNotLoaded:
@@ -185,14 +211,42 @@ def l_mask():
         return redirect(url_for("l_form"))
 
     try:
-        new_df = apply_l_contextual_mask(csv_text, selected_columns, l_value)
-        _replace_working_csv(new_df.to_csv(index=False))
-        flash(f"ℓ-Diversity masking applied successfully with ℓ = {l_value}.", "success")
+        df = pd.read_csv(StringIO(csv_text))
+        
+        # --- Η ΑΛΛΑΓΗ ΕΙΝΑΙ ΕΔΩ ---
+        def simple_mask_string(text, num_to_mask):
+            text = str(text)
+            length = len(text)
+            
+            # Υπολογίζουμε πόσα γράμματα θα μείνουν
+            leave_chars = length - num_to_mask
+            
+            # Αν το l είναι μεγαλύτερο από τη λέξη, τα κρύβουμε όλα
+            if leave_chars < 0:
+                leave_chars = 0
+            
+            # Κρατάμε τα πρώτα 'leave_chars' και κρύβουμε τα υπόλοιπα
+            return text[:leave_chars] + '*' * (length - leave_chars)
+
+        for col in selected_columns:
+            if col in df.columns:
+                
+                def mask_full_name(cell_text):
+                    words = str(cell_text).split(' ')
+                    # Εφαρμόζουμε τη νέα λογική σε κάθε λέξη
+                    masked_words = [simple_mask_string(word, chars_to_mask) for word in words]
+                    return ' '.join(masked_words)
+
+                df[col] = df[col].apply(mask_full_name)
+
+        _replace_working_csv(df.to_csv(index=False))
+        flash(f"Simple masking applied, masking the last {chars_to_mask} character(s) per word.", "success")
+        
     except Exception as e:
-        flash(f"ℓ-Diversity masking failed: {e}", "danger")
+        flash(f"Masking failed: {e}", "danger")
         return redirect(url_for("l_form"))
 
-    table_html = new_df.head(100).to_html(classes="table table-striped", index=False)
+    table_html = df.head(100).to_html(classes="table table-striped", index=False)
     return render_template("preview.html", table=table_html)
 
 @app.route("/summary")
