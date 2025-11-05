@@ -154,6 +154,9 @@
         margin: { t: 50, b: 60, l: 50, r: 30 }
     };
 
+    const NUMBER_REGEX = /^-?\d+(?:[.,]\d+)?$/;
+    const RANGE_REGEX = /^(-?\d+(?:\.\d+)?)-(-?\d+(?:\.\d+)?)$/;
+
     function getCategoryCounts(data, column) {
         const counts = data.reduce((acc, row) => {
             const val = row[column] || "N/A";
@@ -163,36 +166,166 @@
         return { labels: Object.keys(counts), values: Object.values(counts) };
     }
 
+    function coerceNumeric(value) {
+        if (value === null || value === undefined) {
+            return null;
+        }
+
+        if (typeof value === "number") {
+            return Number.isFinite(value) ? value : null;
+        }
+
+        if (typeof value !== "string") {
+            return null;
+        }
+
+        const trimmed = value.trim();
+        if (!trimmed || trimmed === "*") {
+            return null;
+        }
+
+        const normalized = trimmed.replace(/,/g, ".");
+        if (NUMBER_REGEX.test(normalized)) {
+            const numeric = parseFloat(normalized);
+            return Number.isFinite(numeric) ? numeric : null;
+        }
+
+        const dashNormalized = normalized
+            .replace(/\u2013/g, "-")
+            .replace(/\s+(?:to)\s+/gi, "-")
+            .replace(/\s*-\s*/g, "-");
+
+        const match = dashNormalized.match(RANGE_REGEX);
+        if (match) {
+            const start = parseFloat(match[1]);
+            const end = parseFloat(match[2]);
+            if (Number.isFinite(start) && Number.isFinite(end)) {
+                return (start + end) / 2;
+            }
+        }
+
+        return null;
+    }
+
+    function toNumericSeries(data, column) {
+        return data.reduce((acc, row) => {
+            const numeric = coerceNumeric(row[column]);
+            if (numeric !== null) {
+                acc.push(numeric);
+            }
+            return acc;
+        }, []);
+    }
+
+    function toNumericPairs(data, xCol, yCol) {
+        return data.reduce((acc, row) => {
+            const xVal = coerceNumeric(row[xCol]);
+            const yVal = coerceNumeric(row[yCol]);
+            if (xVal !== null && yVal !== null) {
+                acc.push({ x: xVal, y: yVal });
+            }
+            return acc;
+        }, []);
+    }
+
+    function renderEmpty(chartId, message) {
+        const layout = Object.assign({}, PLOTLY_LAYOUT, {
+            annotations: [{
+                text: message,
+                x: 0.5,
+                y: 0.5,
+                xref: "paper",
+                yref: "paper",
+                showarrow: false,
+                font: { size: 14, color: "#6c757d" }
+            }]
+        });
+        Plotly.react(chartId, [], layout);
+    }
+
     function draw(data, chartId, type, xCol, yCol = null, bins = 20) {
-        let traceData;
+        if (!data || !data.length) {
+            renderEmpty(chartId, "No records available for visualisation.");
+            return;
+        }
+
+        let traceData = [];
+        const layout = Object.assign({}, PLOTLY_LAYOUT);
+
         switch (type) {
             case "bar":
-            case "pie":
-                const counts = getCategoryCounts(data, xCol);
+                const barCounts = getCategoryCounts(data, xCol);
+                if (!barCounts.labels.length) {
+                    renderEmpty(chartId, `Column "${xCol}" has no values to display.`);
+                    return;
+                }
                 traceData = [{
-                    type: type,
-                    labels: counts.labels,
-                    values: counts.values,
-                    x: counts.labels,
-                    y: counts.values
+                    type: "bar",
+                    x: barCounts.labels,
+                    y: barCounts.values
+                }];
+                break;
+            case "pie":
+                const pieCounts = getCategoryCounts(data, xCol);
+                if (!pieCounts.labels.length) {
+                    renderEmpty(chartId, `Column "${xCol}" has no values to display.`);
+                    return;
+                }
+                traceData = [{
+                    type: "pie",
+                    labels: pieCounts.labels,
+                    values: pieCounts.values
                 }];
                 break;
             case "histogram":
-                traceData = [{ type: "histogram", x: data.map(r => r[xCol]), nbinsx: bins }];
+                const histogramSeries = toNumericSeries(data, xCol);
+                if (!histogramSeries.length) {
+                    renderEmpty(chartId, `Column "${xCol}" has no numeric data for a histogram.`);
+                    return;
+                }
+                traceData = [{
+                    type: "histogram",
+                    x: histogramSeries,
+                    nbinsx: bins
+                }];
                 break;
             case "box":
-                traceData = [{ type: "box", y: data.map(r => r[xCol]), name: xCol }];
+                const boxSeries = toNumericSeries(data, xCol);
+                if (!boxSeries.length) {
+                    renderEmpty(chartId, `Column "${xCol}" has no numeric data for a box plot.`);
+                    return;
+                }
+                traceData = [{
+                    type: "box",
+                    y: boxSeries,
+                    name: xCol
+                }];
                 break;
             case "scatter":
+                if (!yCol) {
+                    renderEmpty(chartId, "Select a Y-axis column for the scatter plot.");
+                    return;
+                }
+                const pairs = toNumericPairs(data, xCol, yCol);
+                if (!pairs.length) {
+                    renderEmpty(
+                        chartId,
+                        `Columns "${xCol}" and "${yCol}" need numeric data for a scatter plot.`
+                    );
+                    return;
+                }
                 traceData = [{
                     type: "scatter",
                     mode: "markers",
-                    x: data.map(r => r[xCol]),
-                    y: data.map(r => r[yCol])
+                    x: pairs.map(p => p.x),
+                    y: pairs.map(p => p.y)
                 }];
                 break;
+            default:
+                renderEmpty(chartId, "Unsupported chart type.");
+                return;
         }
-        Plotly.newPlot(chartId, traceData, PLOTLY_LAYOUT);
+        Plotly.react(chartId, traceData, layout);
     }
 
     document.addEventListener("DOMContentLoaded", () => {
